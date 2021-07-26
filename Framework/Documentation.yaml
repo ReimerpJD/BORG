@@ -1,0 +1,184 @@
+PDF Documentation Sections:
+	Creating a Router
+	Creating an Engine
+	Adding Mods to the API
+	Deployment/Init Script
+	Markup for the Documentation module
+
+Documentation Format:
+	Page Title: //#
+	Programming Documentation: //!
+	API Documentation: //?
+	Link to Document: //@
+	Description: //=
+	Comment: //-
+	Input Parameter: //:
+	Returns: //$
+	Errors: //&
+
+ENV Variables:
+	TITLE
+	SSL_KEY
+	SSL_CERT
+	DEFAULT_LANGUAGE
+	ACCOUNT_CREATION
+	DEFAULT_BACKGROUND
+	DEFAULT_COLOR
+	DEFAULT_TEXT
+	MONGO_DATABASE
+	MONGO_USER
+	MONGO_PASSWORD
+	MONGO_HOST
+	MONGO_PORT
+	REDIS_HOST
+	REDIS_PORT
+	
+JSON Objects:
+	Request:
+		Authorization: {Account:AID, [Password:string or Key:string]}
+		Language: iso 639-1 code
+		Instructions: array of Instruction objects to iterate over and execute
+		
+	Instruction:
+		Subsystem: string (Account, Admin, Resource, Mods)
+		Function: string (Subsystem function to execute)
+		Options: object (input data for API functionality)
+		
+	Response:
+		Account: ID of account that made the request
+		Language: the requested language (not necessarily the render language)
+		Date: unix timestamp
+		Data: array of Result objects from the API functions called
+		
+	Result:
+		Result: any
+		Error: string (message)
+		Meta: object
+		Body: array of types for engine specified in Meta
+	
+Master Inputs List:
+	String: string
+	Account: AID
+	Result: boolean
+	Name: string
+		
+Framework API:
+	API: (Handles Authentication and prepares Request{})
+	Account:
+		Login
+		Logout
+		Challenge
+		Authenticate
+		Create
+		Update
+		Delete
+		Validate
+	Admin:
+		Documentation
+		Flush
+		NewPassword
+		NewAccount
+		LockA
+		LockR
+	Resource:
+		Render
+		Meta
+		Documentation
+		Create
+		Update
+		Delete
+		
+MongoDB Collections:
+	#ID:
+	Accounts:
+		ID: AID
+		Tag: unique-string
+		Name:
+			iso-lang: string
+		Password: hashed w. salt
+		Email: string
+		Salt: salt
+		Groups: [AID]
+		Languages: [iso 639-1]
+		Locked: booelan
+		
+	Meta:
+		ID: RID
+		Owner: AID
+		Authors: [AID]
+		Title:
+			iso-lang: title
+		Languages: [iso 639-1]
+		Libraries: [ID]
+		Main: color
+		Text: color
+		Background: string
+		Tags: [text]
+		Record: [timestamp]
+		Expired: boolean
+		Access:
+			Blacklist: [1]/[AID]/[],
+			Know: [1]/[AID]/[],
+			View: [1]/[AID]/[],
+			Edit: [1]/[AID]/[],
+			Log_(data): [AID]
+		Engine: engine
+		Body: []
+			Type: string
+			Data: any
+		Locked: boolean
+		
+		
+	#Data:
+	Log:
+		ID: RID
+		Key: string
+		
+	#Discussions:
+	Errors:
+		Code: int
+		Error: string (title of error)
+		Descritpion: string (description of error)
+		Message: int (Message.Code)
+		
+	Messages:
+		Code: int (referred to by Error.Message)
+		(iso 639-1): Message
+	#Language:
+	#Languages:
+	#Admin:
+	
+Engines:
+	(Main): returns Documentation
+	Engine: renders given Response objects
+	Types: directory, main is function that returns all Types templates, functions for each Type based on render formats
+	Validator: (must be separate module) takes individual Data objects and returns true if they are valid in that engine
+	
+Types Templates:
+	[Type Name]: [valid Inputs from Master List]
+	
+#Finalize API routes (Admin)
+#Update collections in Init
+#Reimplemement Boot script
+#Documentation for creating markup for Documentation module
+#Format for background value for Resources??
+#Router creation documentation/guide
+#Engine creation documentation/guide
+#Documentation rendering Engine??? (or leave up to en user?)
+#Keep the default engine??? Use of default engine???
+#Finish documenting MongoDB Objects
+#Setup Init script
+#Libraries=Groups for Resources??
+#Check Access backwards
+#Deployment test script (runs through all API paths to test them
+#Guide for making Mods for the API (rules and formats)
+#Configure master inputs list in Framework/Engine
+#implement transfer of ownership of resources
+#implement Groups functionality
+#Figure out Admin Logging system
+#Add Admin logging of user actions through API
+#Merge Language && Messages???
+#Fix Resource.Update Access & Log updating
+#Implement option for preserving previous versions of Data/Resources
+#Default UI with Login, Dashboard, and Account functionality???
+#Implement functionality for allowing downloading resources of different formats??
