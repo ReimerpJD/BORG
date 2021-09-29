@@ -9,7 +9,7 @@ function Framework(Data){
 	this.Query=function(Operation,Options,Handler){}//Define a valid query and how it is responded to
 	this.Data=function(Identifier,Validator){}//Define a data structure by its Type Identifier and Validation function
 	this.Engine=function(Format,Function){}//Define an output format and an engine for it
-	this.Workshop=function(){}//For building new resources one line at a time
+	this.Workshop=function(ID,Operation,Data){}//For building new resources one line at a time
 }
 Framework.Data=function(){
 	this.Queries={};
@@ -17,14 +17,14 @@ Framework.Data=function(){
 	this.Query=function(Operation,Options,Handler){}//Define a valid query and how it is responded to
 }
 Framework.Router=function(){
-	this.Information={}//Error logs and runtime information
 	this.Modules={};
+	this.Information={}//Error logs and runtime information
 	this.Assign=function(Identifier,Framework,Handler){}//Assign a framework instance to respond to a particular call string, Handler builds {?}
 }
 Framework.Admin=function(){}//Built in framework manager/statistical analyis/exception handling
 Framework.Mongo=function(Options){}//Built in MongoDB Data instance creator (execute to return instance)
 Framework.Accounts={
-	//Built in acccount pool management tools/classes
+	//Built in account pool management tools/classes
 }
 Framework.Documentation=function(File,API){
 	//Built in documentation rendering {$}
