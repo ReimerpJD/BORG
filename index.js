@@ -20,9 +20,11 @@ Framework.Router=function(){
 	this.Information={}//Error logs and runtime information
 	this.Modules={};
 	this.Assign=function(Identifier,Framework,Handler){}//Assign a framework instance to respond to a particular call string, Handler builds {?}
+}
 Framework.Admin=function(){}//Built in framework manager/statistical analyis/exception handling
+Framework.Mongo=function(Options){}//Built in MongoDB Data instance creator (execute to return instance)
 Framework.Accounts={
-	//Built in acccount pool mnagement tools/classes
+	//Built in acccount pool management tools/classes
 }
 Framework.Documentation=function(File,API){
 	//Built in documentation rendering {$}
