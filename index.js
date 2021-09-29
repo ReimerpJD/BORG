@@ -1,36 +1,36 @@
-function Framework(Database,Engine){
-	this.Process=async function(Request){}
+function Framework(Data){
+	this.Data=Data;
+	this.Queries={};
+	this.Types={};
+	this.Engines={};
+	this.Workbenches={};
+	this.Information={}//Error logs and runtime information
+	this.Process=async function(Request){}//Takes {?}
+	this.Query=function(Operation,Options,Handler){}//Define a valid query and how it is responded to
+	this.Data=function(Identifier,Validator){}//Define a data structure by its Type Identifier and Validation function
+	this.Engine=function(Format,Function){}//Define an output format and an engine for it
+	this.Workshop=function(){}//For building new resources one line at a time
 }
-
-
-Framework.Database=function(){
-	this.Insert=async function(Options){}
-	this.Query=async function(Options){}
-	this.Modify=async function(Options){}
-	this.Delete=async function(Options){}
-	//deal with multiple db types?
-	//check connection?
+Framework.Data=function(){
+	this.Queries={};
+	this.Information={}//Error logs and runtime information
+	this.Query=function(Operation,Options,Handler){}//Define a valid query and how it is responded to
 }
-Framework.Engine=function(Types){
-	this.Types=Types;
-	this.Errors={};
-	this.Add=function(Type,Format,Function){}
-	this.Output=function(Format,Function){}
-	this.Render=function(Resource,Format,Options){}
-	//Types input format: {Type:{'Inputs':[]}}?
+Framework.Router=function(){
+	this.Information={}//Error logs and runtime information
+	this.Modules={};
+	this.Assign=function(Identifier,Framework,Handler){}//Assign a framework instance to respond to a particular call string, Handler builds {?}
+Framework.Admin=function(){}//Built in framework manager/statistical analyis/exception handling
+Framework.Accounts={
+	//Built in acccount pool mnagement tools/classes
 }
-Framework.Router=function(){//constructions and use unclear
-	
+Framework.Documentation=function(File,API){
+	//Built in documentation rendering {$}
 }
-
-
-Framework.Accounts=function(){}
-Framework.Admin=function(){
-	//functions automatically called by instances to fix db issues, ...
-	//all static methods for if instance fails?
+Framework.Language={
+	Default:false,
+	Map:()=>{},
+	//ISO 639 Codes
+	//Code to name and name to code
+	//Built in langauge management tools
 }
-
-
-Framework.Documentation=function(){}//understand uses
-Framework.Language=function(){}//understand uses
-Framework.Inputs={}//Needs reevaluation
