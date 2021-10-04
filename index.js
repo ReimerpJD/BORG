@@ -38,7 +38,8 @@ function Framework(Data){
 	this.Workshop=function(ID,Operation,Data){}// For building new resources one line at a time
 	this.Finalize=function(){}// Checks for missing pieces before instance is ready to be used
 }
-Framework.Data=function(){
+Framework.Data=function(Options){
+	if(Options.CustomAPI)this.CustomAPI=true;
 	this.Finalized=false;
 	this.Queries={};
 	this.Toolbox={};
@@ -58,11 +59,10 @@ Framework.Data=function(){
 		this.Toolbox[Name]=Tool;
 	}
 	this.Finalize=function(){
-		if(!this.Queries.Create||!this.Queries.Read||!this.Queries.Update||!this.Queries.Delete)throw new Error(`Missing Default Queries:${this.Queries.Create?'':' Create'}${this.Queries.Read?'':' Read'}${this.Queries.Update?'':' Update'}${this.Queries.Delete?'':' Delete'}`);
+		if(!this.CustomAPI&&(!this.Queries.Create||!this.Queries.Read||!this.Queries.Update||!this.Queries.Delete))throw new Error(`Missing Default Queries:${this.Queries.Create?'':' Create'}${this.Queries.Read?'':' Read'}${this.Queries.Update?'':' Update'}${this.Queries.Delete?'':' Delete'}`);
 		if(Object.keys(this.Queries).length==0)throw new Error('The Data instance could not be finalized because it has no valid queries');
 		this.Finalized=true;
 	}
-	// CRUD is MINIMUM functionality
 }
 Framework.Router=function(){
 	this.Modules={};
