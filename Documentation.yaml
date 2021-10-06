@@ -1,4 +1,4 @@
-Documentation Format: #{$}
+Documentation Format: # {$}
 	Page Title: //#
 	Programming Documentation: //!
 	API Documentation: //?
@@ -9,7 +9,7 @@ Documentation Format: #{$}
 	Returns: //$
 	Errors: //&
 	
-Request Object: #{?}
+Request Object: # {?}
 	Operation: string (CRUD+) #Interpreted by the engine
 	Language: iso 639-1 code #Requested language
 	Languages: iso 639-1 code array #Acceptable languages
@@ -17,8 +17,10 @@ Request Object: #{?}
 	Data: array {UID, Options, ...} #Data to be updated, deleted, or added to matches
 	Engine: string #the framework instance engine to render with (if any)
 	
-Response Object: #{!}
+Response Object: # {!}
 	Request: object #the full request object except submitted data/auth
 	Options: object #Option-value pairs
 	Language: iso 639-1 code #Rendered language
 	Languages: iso 639-1 code array #Available languages
+	
+Status Object: # {%}
