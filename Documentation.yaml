@@ -8,19 +8,47 @@ Documentation Format: # {$}
 	Input Parameter: //:
 	Returns: //$
 	Errors: //&
-	
+
 Request Object: # {?}
 	Operation: string (CRUD+) #Interpreted by the engine
 	Language: iso 639-1 code #Requested language
 	Languages: iso 639-1 code array #Acceptable languages
 	Filters: object {ID, Title, ...} #Interpreted by the engine
+		Key: #any valid value for the programmer-determined key
+		Include: array #Types, Leave empty to request entire document
+		Exclude: array #Types, Leave empty to request entire document
 	Data: array {UID, Options, ...} #Data to be updated, deleted, or added to matches
 	Engine: string #the framework instance engine to render with (if any)
-	
+
 Response Object: # {!}
 	Request: object #the full request object except submitted data/auth
 	Options: object #Option-value pairs
 	Language: iso 639-1 code #Rendered language
 	Languages: iso 639-1 code array #Available languages
-	
+
 Status Object: # {%}
+
+Reserved Type Identifiers:
+	'TYPE'
+	'META'
+	'WORK'
+
+Store Format: # (S)
+	Create: (Filters, Data, Authentication, Stores)
+	Read: (Filters, Authentication, Stores)
+	Update: (Filters, Data, Authentication, Stores)
+	Delete: (Filters, Authentication, Stores)
+
+Engine Format: # (E)
+	Inputs: ({!}, Engines, Stores)
+	Output: [!]
+
+Type/Meta Validator function: # (V)
+	Inputs: (Value, Auth)
+	Output: undefined (failed), Value (passed/scrubbed)
+
+Authenticate function: # (=)
+	Inputs: (Authentication Object, Meta Object)
+	Output: true or false
+
+#Turn all Error strings into array/... so anyone can add new langauges
