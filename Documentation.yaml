@@ -32,6 +32,8 @@ Reserved Type Identifiers:
 	'TYPE'
 	'META'
 	'WORK'
+	'ID'
+	'_id'
 
 Store Format: # (S)
 	Create: (Filters, Data, Authentication, Stores)
@@ -50,5 +52,10 @@ Type/Meta Validator function: # (V)
 Authenticate function: # (=)
 	Inputs: (Authentication Object, Meta Object)
 	Output: true or false
+	
+Error Object: # {*}
 
-#Turn all Error strings into array/... so anyone can add new langauges
+#Top to bottom explain functionality here and use this to build PDF documentation
+#Add Settings parsing and addition to instantiation
+#Add Default object input to Type definition (default values to Options)
+#Change Framework.Admin.Error to only accept Log as parameter
