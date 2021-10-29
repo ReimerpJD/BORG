@@ -10,6 +10,12 @@ Documentation Format: # {$}
 	Errors: //&
 
 Request Object: # {?}
+	Operation: string (CRUDS)
+	Filters: object
+	Data: array {UID, Options, ...}
+	Engine: string
+
+
 	Operation: string (CRUD+) #Interpreted by the engine
 	Language: iso 639-1 code #Requested language
 	Languages: iso 639-1 code array #Acceptable languages

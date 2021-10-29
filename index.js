@@ -1,4 +1,64 @@
 function Framework(Settings){
+	this.Log=new Framework.Log();
+	this.Stores={};
+	this.Inputs={};
+	this.Types={};
+	this.Engines={};
+	this.Settings=this.Log.S('Settings',Settings);
+}
+Framework.prototype.Store=function(Name,API){if(this.Log.C(true).V('Name',Name).V('API',API).F())this.Stores[Name]=API}
+Framework.prototype.Input=function(Name,Function){if(this.Log.C(true).V('Name',Name).V('Function',Function).P())this.Inputs[Name]=Function}
+Framework.prototype.Type=function(Name,Options,Store,Required){if(this.Log.C(true).V('Name',Name).V('Options',Options).V('Store',Store).V('Options',Required,{Set:Options}).P())this.Types[Name]={Store:this.Stores[Store],Options:this.Map(Options)}}
+Framework.prototype.Engine=function(Name,Function){if(this.Log.C(true).V('Name',Name).V('Function',Engine).P())this.Engines[Name]=Function}
+Framework.prototype.Map=function(Options){
+	let Shell={};
+	for(let i=0,o=Object.keys(this.Options),l=o.length;i<l;i++)Shell[o[i]]=this.Inputs[Options[o[i]]];
+	return Shell;
+}
+Framework.prototype.Create=function(Data,Auth){} // finish
+Framework.prototype.Read=function(ID,Filters,Auth){} // finish
+Framework.prototype.Update=function(ID,Data,Auth){} // finish
+Framework.prototype.Delete=function(ID,Recursive,Auth){} // finish
+Framework.Router=function(){} // finish
+Framework.Router.prototype.Assign=function(Name,Handler,Framework){} // finish
+Framework.Router.prototype.Process=function(Name,Inputs){} // finish
+Framework.Log=function(){ // finish
+	this.Errors=[];
+	this.Warning=[];
+	this.Messages=[];
+	this.Critical=false;
+}
+Framework.Log.prototype.C=function(Throw,Flush){} // set throw error on critical flush to true/false (automatically flush unless param 2 is true)
+Framework.Log.prototype.S=function(Kind,Value){} // Scrub and return
+Framework.Log.prototype.V=function(Kind,Value){} // validate and return bool
+Framework.Log.prototype.F=function(Ignore){} // flush to stderr/stdout and return !Critical (force Ignore critical)
+Framework.Log.prototype.E=function(){} // return error obejct
+Framework.Log.prototype.Validators={
+	// all add timestamp before logging messages
+	Name:Value=>{},
+	API:Value=>{},
+	Function:Value=>{},
+	Options:Value=>{}
+}
+Framework.Log.prototype.Scrubbers={
+	// all add timestamp before logging messages
+	Settings:Value=>{
+		// Error handler function
+		// Error message array (if none use default)
+		// Authentication function
+		// to or not to preserve old versions of documents
+	}
+}
+Framework.Log.prototype.Errors={ // finish
+	en:{}
+}
+Framework.Documentation=function(File){} // finish
+
+
+
+
+
+function Framework(Settings){
 	
 	// Authentication: f( {=}, {?}META)
 	// Stats.Log: f( {?}, {=}, ...?){})
@@ -267,14 +327,14 @@ Framework.Router=function(){
 	this.Routes={};
 }
 Framework.Router.prototype.Assign=function(Identifier,Framework,Handler){
-	this.Routes[Identifier]={Framework:Framework,Handler:Handler}; // Handler includes catching Framework errors if the instacne doesn't do it itself
+	this.Routes[Identifier]={Framework:Framework,Handler:Handler}; // Handler includes catching Framework errors if the instance doesn't do it itself
 }
 
 Framework.Admin={
 	Inputs:['undefined','object','boolean','symbol','string','number','bigint','function'],
 	Stats.Log:(Error)=>{console.Stats.Log(Error)},
 	Reserved:['TYPE','META','WORK','ID','_id'],
-	Error:function(Message,Stats.Log,Quiet){
+	Error:function(Message,Stats,Quiet){
 		let E={};
 		E.name='BORG';
 		E.message=(typeof Message=='string')?Message:Framework.Admin.Errors[91]();
