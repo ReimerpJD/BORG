@@ -18,35 +18,3 @@ Store API Format:
 Engine Parameters: Meta, Data, Framework
 
 #! Meta is a required Type
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Engine Format: # (E)
-	Inputs: ({!}, Engines, Stores)
-	Output: [!]
-
-Type/Meta Validator function: # (V)
-	Inputs: (Value, Auth)
-	Output: undefined (failed), Value (passed/scrubbed)
-
-Authenticate function: # (=)
-	Inputs: (Authentication Object, Meta Object)
-	Output: true or false
-	
-Error Object: # {*}
-
-#Top to bottom explain functionality here and use this to build PDF documentation
-#Add Settings parsing and addition to instantiation
-#Add Default object input to Type definition (default values to Options)
-#Change Framework.Admin.Error to only accept Log as parameter
