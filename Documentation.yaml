@@ -4,10 +4,10 @@ Documentation Format: # {$}
 	API Documentation: //?
 	Link to Document: //@
 	Description: //=
-	Comment: //-
 	Input Parameter: //:
 	Returns: //$
 	Errors: //&
+	Comment: //-
 
 Store API Format:
 	Create: Meta (Stores) [ID]

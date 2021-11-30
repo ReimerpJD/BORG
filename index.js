@@ -1,3 +1,9 @@
+//# BORG Framework
+//- Broadscale Organizational Resource Generator
+
+//! Framework constructor function
+//= used to generate an instance of the Framework
+//: Settings object used to pass the Authenticate function and Error list to the instance
 function B(Settings){
 	this.Stores={};
 	this.Inputs={};
@@ -5,44 +11,74 @@ function B(Settings){
 	this.Engines={};
 	this.Settins=this.V('Settings',Settings)?Settings:{};
 }
+//! Framework instance Store setting function
+//= used to assign Stores to the framework instance
+//: Name string identifier used as an object key
+//: API
 B.prototype.Store=function(Name,API){
 	if(this.V('Name',Name)&&this.V('API',API))this.Stores[Name]=API;
 	else throw new Error(this.E('CONFIGFAILURE'));
 }
+//! Framework instance Input setting function
+//= used to assign Inputs to the framework instance
+//: Name string identifier used as an object key
+//: Function function the validator function used on Input values
 B.prototype.Input=function(Name,Function){
 	if(this.V('Name',Name)&&this.V('Function',Function))this.Inputs[Name]=Function;
 	else throw new Error(this.E('CONFIGFAILURE'));
 }
+//! Framework instance Type setting function
+//= used to assign Types to the framework instance
+//: Name string identifier used as an object key
+//: Options object the Type's inputs (keys) to the Inputs (values) they're defined as and validated with
+//: Store string the name of the Store used to store entries of the Type
+//: Required array (of strings) the Options which are required for an entry of the Type to be valid
 B.prototype.Type=function(Name,Options,Store,Required){
 	if(this.V('Name',Name)&&this.V('Options',Options)&&this.V('Store',Store)&&this.V('Required',Required,false)&&this.V('RequiredOptions',{Required:Required?Required:[],Options:Options}))this.Types[Name]={Store:this.Stores[Store],Options:this.Map(Options),Required:Required?Required:[]};
 	else throw new Error(this.E('CONFIGFAILURE'));
 }
+//! Framework instance Engine setting function
+//= used to assign Engines to the framework instance
+//: Name string identifier used as an object key
+//: Function function the engine itself
 B.prototype.Engine=function(Name,Function){
 	if(this.V('Name',Name)&&this.V('Function',Function))this.Engines[Name]=Function
 }
+//! Framework instance Map function
+//= used by the Type settting function to connect a Type's Options to defined Inputs 
 B.prototype.Map=function(Options){
 	let Shell={};
 	for(let i=0,o=Object.keys(this.Options),l=o.length;i<l;i++)Shell[o[i]]=this.Inputs[Options[o[i]]];
 	return Shell;
 }
+//! Framework instance Authenticate function
+//= returns whether or not a request is authenticated to perform an action based on the Auth input it provided
 B.prototype.Authenticate=function(Auth,Action){return typeof this.Settings.Authenticate=='function'?this.Settings.Authenticate(Auth,Action):true}
+//! Framework instance Type Validator function
+//= used to validate if entires conform to the Type model they belong to
 B.prototype.Validate=function(Type,Item){
 	if(!Type in this.Types)return false;
 	if(typeof Item!='object')return false;
 	if(this.Types[Type].Required.length>0)for(let i=0,l=this.Types[Type].Required.length;i<l;i++)if(!this.Types[Type].Required[i] in Item)return false;
 	for(let i=0,o=Object.keys(Item),l=o.length;i<l;i++){if(!o[i] in this.Types[Type].Options||!this.Types[Type].Options[o[i]](Item[o[i]]))return false}
 }
+//! Framework instance Error Response function
+//= used to return an error/message based on teh requested and available languages
 B.prototype.E=function(E,Lang){
 	if(typeof Lang=='string'&&Lang in this.Languages&&typeof this.Languages[Lang]=='object'&&E in this.Languages[Lang])return this.Languages[Lang][E];
 	else if(this.Settings.Errors&&E in this.Settings.Error)return this.Settings.Error[E];
 	else if(E in this.English)return this.English[E];
 	else return 'An unexpected error prevented normal operation of the framework';
 }
+//! Framework instance Input Validator function
+//= used to validate all configuration/non-Type inputs
 B.prototype.V=function(Name,Value,Required=true){
 	if(typeof Name!='string')throw new Error(this.E('BADNAME'));
 	if(!(Name in this.Names))throw new Error(this.E('MISSINGNAME'));
 	return Required?this.Names[Name](Value):typeof Value=='undefined'||Value===null?true:this.Names[Name](Value);
 }
+//! Framework instance Names object
+//= collection of functions used by the Input Validator function for validation
 B.prototype.Names={
 	Name:function(Name){return typeof Name=='string'},
 	API:function(API){return (typeof API=='function'&&typeof API.Create=='function'&&typeof API.Read=='function'&&typeof API.Update=='function'&&typeof API.Delete=='function')},
@@ -77,12 +113,14 @@ B.prototype.Names={
 		return true;
 	},
 };
+//! Framework instance Search API function
 B.prototype.Search=async function(Filter,Auth,Lang){
 	let Authorized=this.Authenticate(Auth,'Search');
 	if(!Authorized)return this.E('ACCESSDENIED',Lang);
 	if(!this.V('Filter',Filter))return this.E('BADFILTER');
 	return await this.Types.Meta.Store.Read(null,Filter,Auth,this.Stores);
 }
+//! Framework instance Create API function
 B.prototype.Create=async function(Meta,Auth,Lang){
 	let Authorized=this.Authenticate(Auth,'Create');
 	if(!Authorized)return this.E('ACCESSDENIED',Lang);
@@ -91,6 +129,7 @@ B.prototype.Create=async function(Meta,Auth,Lang){
 	Meta=M;
 	return await this.Types.Meta.Store.Create(Meta,this.Stores);
 }
+//! Framework instance Read API function
 B.prototype.Read=async function(ID,Engine,Filters,Auth,Lang){
 	let Authorized=this.Authenticate(Auth,'Read');
 	if(!Authorized)return this.E('ACCESSDENIED',Lang);
@@ -106,6 +145,7 @@ B.prototype.Read=async function(ID,Engine,Filters,Auth,Lang){
 	if(Engine)return await this.Engines[Engine](M,D,this);
 	else return {Meta:M,Data:D};
 }
+//! Framework instance Update API function
 B.prototype.Update=function(ID,Type,UID,Data,Auth,Lang){
 	let Authorized=this.Authenticate(Auth,'Update');
 	if(!Authorized)return this.E('ACCESSDENIED',Lang);
@@ -119,6 +159,7 @@ B.prototype.Update=function(ID,Type,UID,Data,Auth,Lang){
 	Data=D;
 	return await this.Types[Type].Store.Update(ID,UID,Data,Auth,this.Stores);
 }
+//! Framework instance Delete API function
 B.prototype.Delete=function(ID,Auth,Lang){
 	let Authorized=this.Authenticate(Auth,'Delete');
 	if(!Authorized)return this.E('ACCESSDENIED',Lang);
@@ -135,6 +176,8 @@ B.prototype.Delete=function(ID,Auth,Lang){
 //B.Router.prototype.Assign=function(Name,Handler,Framework){}
 //B.Router.prototype.Process=function(Name,Input){}
 //B.Documentation=function(){}
+//! Framework Errors in English
+//- used as the default collection of Errors
 B.English={
 	CONFIGFAILURE:'A configuration process failed without throwing an error',
 	BADNAME:'The Name provided was not a string',
@@ -152,4 +195,6 @@ B.English={
 	BADFILTERS:'The filters provided were not valid',
 	MISSINGUID:'The UID parameter given was not valid for the Type provided',
 };
+//! Framework Language Object
+//= used to house additional Errors in different forms or languages
 B.Languages={};
