@@ -9,7 +9,7 @@ function B(Settings){
 	this.Inputs={};
 	this.Types={};
 	this.Engines={};
-	this.Settins=this.V('Settings',Settings)?Settings:{};
+	this.Settings=this.V('Settings',Settings)?Settings:{};
 }
 //! Framework instance Store setting function
 //= used to assign Stores to the framework instance
@@ -115,14 +115,14 @@ B.prototype.Names={
 };
 //! Framework instance Search API function
 B.prototype.Search=async function(Filter,Auth,Lang){
-	let Authorized=this.Authenticate(Auth,'Search');
+	let Authorized=this.Authenticate(Auth,0);
 	if(!Authorized)return this.E('ACCESSDENIED',Lang);
 	if(!this.V('Filter',Filter))return this.E('BADFILTER');
-	return await this.Types.Meta.Store.Read(null,Filter,Auth,this.Stores);
+	return await this.Types.Meta.Store.Read(null,Filter,this.Stores);
 }
 //! Framework instance Create API function
 B.prototype.Create=async function(Meta,Auth,Lang){
-	let Authorized=this.Authenticate(Auth,'Create');
+	let Authorized=this.Authenticate(Auth,2);
 	if(!Authorized)return this.E('ACCESSDENIED',Lang);
 	let M=this.Validate('Meta',Meta);
 	if(!M)return this.E('BADTYPE',Lang);
@@ -131,15 +131,15 @@ B.prototype.Create=async function(Meta,Auth,Lang){
 }
 //! Framework instance Read API function
 B.prototype.Read=async function(ID,Engine,Filters,Auth,Lang){
-	let Authorized=this.Authenticate(Auth,'Read');
+	let Authorized=this.Authenticate(Auth,1);
 	if(!Authorized)return this.E('ACCESSDENIED',Lang);
 	if(!this.V('Filters',Filters))return this.E('BADFILTERS');
 	if(!this.V('Engine',Engine))return this.E('BADENGINE');
-	let M=await this.Types.Meta.Store.Read(ID,Filters.Meta,Auth,this.Stores);
+	let M=await this.Types.Meta.Store.Read(ID,Filters.Meta,this.Stores);
 	if(!M)return this.E('MISSING');
 	let D=[];
 	for(let i=0,o=Object.keys(this.Types),l=o.length;i<l;i++){
-		let d=await this.Types[o[i]].Store.Read(ID,Filters[o[i]],Auth,this.Stores);
+		let d=await this.Types[o[i]].Store.Read(ID,Filters[o[i]],this.Stores);
 		if(d)D.push(d);
 	}
 	if(Engine)return await this.Engines[Engine](M,D,this);
@@ -147,21 +147,21 @@ B.prototype.Read=async function(ID,Engine,Filters,Auth,Lang){
 }
 //! Framework instance Update API function
 B.prototype.Update=function(ID,Type,UID,Data,Auth,Lang){
-	let Authorized=this.Authenticate(Auth,'Update');
+	let Authorized=this.Authenticate(Auth,2);
 	if(!Authorized)return this.E('ACCESSDENIED',Lang);
-	let M=await this.Types.Meta.Store.Read(ID,null,Auth,this.Stores);
+	let M=await this.Types.Meta.Store.Read(ID,null,this.Stores);
 	if(!M)return this.E('MISSING');
 	if(!this.Validate('Type',Type))return this.E('BADTYPE',Lang);
-	let N=this.Types[Type].Store.Read(ID,{UID:UID},Auth,this.Stores);
+	let N=this.Types[Type].Store.Read(ID,{UID:UID},this.Stores);
 	if(!N)return this.E('MISSINGUID');
 	let D=this.Validate('Type',Data);
 	if(!D)return this.E('BADTYPE',Lang);
 	Data=D;
-	return await this.Types[Type].Store.Update(ID,UID,Data,Auth,this.Stores);
+	return await this.Types[Type].Store.Update(ID,UID,Data,this.Stores);
 }
 //! Framework instance Delete API function
 B.prototype.Delete=function(ID,Auth,Lang){
-	let Authorized=this.Authenticate(Auth,'Delete');
+	let Authorized=this.Authenticate(Auth,2);
 	if(!Authorized)return this.E('ACCESSDENIED',Lang);
 	let M=await this.Types.Meta.Store.Read(ID,null,Auth,this.Stores);
 	if(!M)return this.E('MISSING');

@@ -11,10 +11,14 @@ Documentation Format: # {$}
 
 Store API Format:
 	Create: Meta (Stores) [ID]
-	Read: ID, Filters (Auth, Stores) [Resource]
-	Update: ID, UID, Data (Auth, Stores) [Boolean]
+	Read: ID, Filters (Stores) [Resource]
+	Update: ID, UID, Data (Stores) [Boolean]
 	Delete: ID (Stores) [Boolean]
 	
 Engine Parameters: Meta, Data, Framework
+
+Instance Settings Object:
+	Authenticate: function (Credentials, Action)
+	Error: object
 
 #! Meta is a required Type
