@@ -11,6 +11,7 @@ function B(Settings){
 	this.Engines={};
 	this.Settings=this.V('Settings',Settings)?Settings:{};
 }
+
 //! Framework instance Store setting function
 //= used to assign Stores to the framework instance
 //: Name string identifier used as an object key
@@ -19,6 +20,7 @@ B.prototype.Store=function(Name,API){
 	if(this.V('Name',Name)&&this.V('API',API))this.Stores[Name]=API;
 	else throw new Error(this.E('CONFIGFAILURE'));
 }
+
 //! Framework instance Input setting function
 //= used to assign Inputs to the framework instance
 //: Name string identifier used as an object key
@@ -27,6 +29,7 @@ B.prototype.Input=function(Name,Function){
 	if(this.V('Name',Name)&&this.V('Function',Function))this.Inputs[Name]=Function;
 	else throw new Error(this.E('CONFIGFAILURE'));
 }
+
 //! Framework instance Type setting function
 //= used to assign Types to the framework instance
 //: Name string identifier used as an object key
@@ -37,6 +40,7 @@ B.prototype.Type=function(Name,Options,Store,Required){
 	if(this.V('Name',Name)&&this.V('Options',Options)&&this.V('Store',Store)&&this.V('Required',Required,false)&&this.V('RequiredOptions',{Required:Required?Required:[],Options:Options}))this.Types[Name]={Store:this.Stores[Store],Options:this.Map(Options),Required:Required?Required:[]};
 	else throw new Error(this.E('CONFIGFAILURE'));
 }
+
 //! Framework instance Engine setting function
 //= used to assign Engines to the framework instance
 //: Name string identifier used as an object key
@@ -44,6 +48,7 @@ B.prototype.Type=function(Name,Options,Store,Required){
 B.prototype.Engine=function(Name,Function){
 	if(this.V('Name',Name)&&this.V('Function',Function))this.Engines[Name]=Function
 }
+
 //! Framework instance Map function
 //= used by the Type settting function to connect a Type's Options to defined Inputs 
 B.prototype.Map=function(Options){
@@ -51,9 +56,11 @@ B.prototype.Map=function(Options){
 	for(let i=0,o=Object.keys(this.Options),l=o.length;i<l;i++)Shell[o[i]]=this.Inputs[Options[o[i]]];
 	return Shell;
 }
+
 //! Framework instance Authenticate function
 //= returns whether or not a request is authenticated to perform an action based on the Auth input it provided
 B.prototype.Authenticate=function(Auth,Action){return typeof this.Settings.Authenticate=='function'?this.Settings.Authenticate(Auth,Action):true}
+
 //! Framework instance Type Validator function
 //= used to validate if entires conform to the Type model they belong to
 B.prototype.Validate=function(Type,Item){
@@ -62,6 +69,7 @@ B.prototype.Validate=function(Type,Item){
 	if(this.Types[Type].Required.length>0)for(let i=0,l=this.Types[Type].Required.length;i<l;i++)if(!this.Types[Type].Required[i] in Item)return false;
 	for(let i=0,o=Object.keys(Item),l=o.length;i<l;i++){if(!o[i] in this.Types[Type].Options||!this.Types[Type].Options[o[i]](Item[o[i]]))return false}
 }
+
 //! Framework instance Error Response function
 //= used to return an error/message based on teh requested and available languages
 B.prototype.E=function(E,Lang){
@@ -70,6 +78,7 @@ B.prototype.E=function(E,Lang){
 	else if(E in this.English)return this.English[E];
 	else return 'An unexpected error prevented normal operation of the framework';
 }
+
 //! Framework instance Input Validator function
 //= used to validate all configuration/non-Type inputs
 B.prototype.V=function(Name,Value,Required=true){
@@ -77,6 +86,7 @@ B.prototype.V=function(Name,Value,Required=true){
 	if(!(Name in this.Names))throw new Error(this.E('MISSINGNAME'));
 	return Required?this.Names[Name](Value):typeof Value=='undefined'||Value===null?true:this.Names[Name](Value);
 }
+
 //! Framework instance Names object
 //= collection of functions used by the Input Validator function for validation
 B.prototype.Names={
@@ -113,13 +123,15 @@ B.prototype.Names={
 		return true;
 	},
 };
+
 //! Framework instance Search API function
 B.prototype.Search=async function(Filter,Auth,Lang){
-	let Authorized=this.Authenticate(Auth,0);
 	if(!Authorized)return this.E('ACCESSDENIED',Lang);
 	if(!this.V('Filter',Filter))return this.E('BADFILTER');
+	let Authorized=this.Authenticate(Auth,0);
 	return await this.Types.Meta.Store.Read(null,Filter,this.Stores);
 }
+
 //! Framework instance Create API function
 B.prototype.Create=async function(Meta,Auth,Lang){
 	let Authorized=this.Authenticate(Auth,2);
@@ -129,28 +141,30 @@ B.prototype.Create=async function(Meta,Auth,Lang){
 	Meta=M;
 	return await this.Types.Meta.Store.Create(Meta,this.Stores);
 }
+
 //! Framework instance Read API function
 B.prototype.Read=async function(ID,Engine,Filters,Auth,Lang){
-	let Authorized=this.Authenticate(Auth,1);
-	if(!Authorized)return this.E('ACCESSDENIED',Lang);
 	if(!this.V('Filters',Filters))return this.E('BADFILTERS');
 	if(!this.V('Engine',Engine))return this.E('BADENGINE');
 	let M=await this.Types.Meta.Store.Read(ID,Filters.Meta,this.Stores);
 	if(!M)return this.E('MISSING');
+	let Authorized=this.Authenticate(Auth,1,M);
+	if(!Authorized)return this.E('ACCESSDENIED',Lang);
 	let D=[];
 	for(let i=0,o=Object.keys(this.Types),l=o.length;i<l;i++){
 		let d=await this.Types[o[i]].Store.Read(ID,Filters[o[i]],this.Stores);
 		if(d)D.push(d);
 	}
-	if(Engine)return await this.Engines[Engine](M,D,this);
+	if(Engine)return await this.Engines[Engine](M,D,this,Auth);
 	else return {Meta:M,Data:D};
 }
+
 //! Framework instance Update API function
 B.prototype.Update=function(ID,Type,UID,Data,Auth,Lang){
-	let Authorized=this.Authenticate(Auth,2);
-	if(!Authorized)return this.E('ACCESSDENIED',Lang);
 	let M=await this.Types.Meta.Store.Read(ID,null,this.Stores);
 	if(!M)return this.E('MISSING');
+	let Authorized=this.Authenticate(Auth,2,M);
+	if(!Authorized)return this.E('ACCESSDENIED',Lang);
 	if(!this.Validate('Type',Type))return this.E('BADTYPE',Lang);
 	let N=this.Types[Type].Store.Read(ID,{UID:UID},this.Stores);
 	if(!N)return this.E('MISSINGUID');
@@ -159,12 +173,36 @@ B.prototype.Update=function(ID,Type,UID,Data,Auth,Lang){
 	Data=D;
 	return await this.Types[Type].Store.Update(ID,UID,Data,this.Stores);
 }
+	
+B.prototype.Update=function(ID,Data,Element,Auth,Lang){
+	// add return errors for failures (rather than return false)
+	let M=await this.Types.Meta.Store.Read(ID,null,this.Stores);
+	if(!M)return this.E('MISSING');
+	let Authorized=this.Authenticate(Auth,2,M);
+	if(!Authorized)return this.E('ACCESSDENIED',Lang);
+	// validate ID, Data, Element, Auth, Lang
+	
+	
+	
+	// check against all elements (don't specify meta because it's in types)
+	var Type;
+	if(!Element||typeof Element!=object||Element.Type=='Meta')Type=['Meta'];
+	else if(Element.Type&&Element.Type in this.Types)Type=[Element.Type];
+	else if(typeof Element=='object'){
+		let O=Object.keys(Element);
+		let T=Object.keys(this.Types);
+		let Ts=[];
+		for(let i=0,l=T.length;i<l;i++)if(O.each(E=>E in this.Types[T[i]]))Ts.push(T[i]);
+		if(Ts.length==0)return false;
+	}else return false;
+}
+
 //! Framework instance Delete API function
 B.prototype.Delete=function(ID,Auth,Lang){
-	let Authorized=this.Authenticate(Auth,2);
-	if(!Authorized)return this.E('ACCESSDENIED',Lang);
 	let M=await this.Types.Meta.Store.Read(ID,null,Auth,this.Stores);
 	if(!M)return this.E('MISSING');
+	let Authorized=this.Authenticate(Auth,2,M);
+	if(!Authorized)return this.E('ACCESSDENIED',Lang);
 	let S=await this.Types.Meta.Store.Delete(ID,this.Stores);
 	for(let i=0,o=Object.keys(this.Types),l=o.length;i<l;i++){
 		let s=await this.Types[o[i]].Store.Delete(ID,this.Stores);
@@ -172,6 +210,7 @@ B.prototype.Delete=function(ID,Auth,Lang){
 	}
 	return S;
 }
+
 //B.Router=function(){}
 //B.Router.prototype.Assign=function(Name,Handler,Framework){}
 //B.Router.prototype.Process=function(Name,Input){}
@@ -195,6 +234,7 @@ B.English={
 	BADFILTERS:'The filters provided were not valid',
 	MISSINGUID:'The UID parameter given was not valid for the Type provided',
 };
+
 //! Framework Language Object
 //= used to house additional Errors in different forms or languages
 B.Languages={};

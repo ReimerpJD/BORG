@@ -14,11 +14,15 @@ Store API Format:
 	Read: ID, Filters (Stores) [Resource]
 	Update: ID, UID, Data (Stores) [Boolean]
 	Delete: ID (Stores) [Boolean]
-	
+
 Engine Parameters: Meta, Data, Framework
 
 Instance Settings Object:
-	Authenticate: function (Credentials, Action)
+	Authenticate: function (Credentials, Action, -Meta)
 	Error: object
+	
+#! Type is a reserved property in each type, and must be included
 
 #! Meta is a required Type
+
+# add Type as a default Input that is automatically added to Types when defined?
