@@ -1,4 +1,4 @@
-Documentation Format: # {$}
+Keys, Documentation Format: # {$}
 	Page Title: //#
 	Programming Documentation: //!
 	API Documentation: //?
@@ -9,20 +9,53 @@ Documentation Format: # {$}
 	Errors: //&
 	Comment: //-
 
-Store API Format:
-	Create: Meta (Stores) [ID]
-	Read: ID, Filters (Stores) [Resource]
-	Update: ID, UID, Data (Stores) [Boolean]
-	Delete: ID (Stores) [Boolean]
+Documentation Reference:
+	Meta: a valid Meta object (defined by instance Meta definition function)
+	Data: an array containing valid Type objects
+	Keys: an object of keys necessary to access a Resource Meta
+	Update: an object defining some Type creation, update, or deletion
+	
+Read Objects:
+	Keys: Keys
+	Filter: user defined object passed directly to the store Read functions
+	List: boolean, whether or not to get the data associated with each matched Meta (if true, dont get Data)
+
+Update Objects:
+	Keys: Keys
+	Meta: Data
+	Updates: []
+		Element: the full current state of the Type to replace #if null, create new
+		Replace: an object defining the Options within the Type to change and the values to change them to (null to delete) #if null, delete old
+
+Actions:
+	0: Read/Search
+	1: Create New
+	2: Update Existing
+	3: Delete Existing
+
+Framework API:
+	Create: Meta, Data, Auth, Lang
+	Read: Read, Engine, Auth, Lang
+	Update: Update, Auth, Lang
+	Delete: Keys, Auth, Lang
+
+Store API:
+	Create: Data, Framework
+	Read: Keys, Filter, Framework
+	Update: Old, New, Framework
+	Delete: Data, Multiple, Framework
+
+Input Functions:
+	Parameters: Value, Framework
+	Returns: scrubbed value or false
 
 Engine Parameters: Meta, Data, Framework
 
 Instance Settings Object:
 	Authenticate: function (Credentials, Action, -Meta)
 	Error: object
-	
-#! Type is a reserved property in each type, and must be included
 
-#! Meta is a required Type
+Settings Object:
+	Authentication function
 
-# add Type as a default Input that is automatically added to Types when defined?
+# leave scope alone in ALL user-defined functions and objects (no bin() or call() in any)
