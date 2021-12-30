@@ -36,51 +36,50 @@ B.prototype.Map=function(Options,Meta){
 	return Shell;
 }
 B.prototype.Authenticate=function(Auth,Action,Meta){return typeof this.Settings.Authenticate=='function'?this.Settings.Authenticate(Auth,Action,Meta):true}
-B.prototype.Scrub=async function(Type,Data){
+B.prototype.Scrub=async function(Type,Data,Meta){
 	if(typeof Data!='object'||Data===null)return false
 	let Shell={}
+	for(let i=0,l=this.Meta.Keys.length;i<l;i++){
+		if(this.Meta.Keys[i] in Shell)continue;
+		let V=await this.Meta.Options[this.Meta.Keys[i]](Data[this.Meta.Keys[i]],this,Meta);
+		if(V===false)return false;
+		else Shell[this.Meta.Keys[i]]=V;
+	}
 	if(Type===null){
-		for(let i=0,l=this.Meta.Keys.length;i<l;i++){
-			if(this.Meta.Keys[i] in Shell)continue;
-			let V=await this.Meta.Options[this.Meta.Keys[i]](Data[this.Meta.Keys[i]],this);
-			if(!V)return false;
-			else Shell[this.Meta.Keys[i]]=V;
-		}
 		for(let i=0,l=this.Meta.Required.length;i<l;i++){
 			if(this.Meta.Required[i] in Shell)continue;
-			let V=await this.Meta.Options[this.Meta.Required[i]](Data[this.Meta.Required[i]],this);
-			if(!V)return false;
+			let V=await this.Meta.Options[this.Meta.Required[i]](Data[this.Meta.Required[i]],this,Meta);
+			if(V===false)return false;
 			else Shell[this.Meta.Required[i]]=V;
 		}
 		for(let i=0,o=Object.keys(this.Meta.Options),l=o.length;i<l;i++){
 			if(o[i] in Shell)continue;
-			let V=await this.Meta.Options[o[i]](Data[o[i]],this);
-			if(V)Shell[o[i]]=V;
+			let V=await this.Meta.Options[o[i]](Data[o[i]],this,Meta);
+			if(V!==false)Shell[o[i]]=V;
 		}
 	}else if(Type in this.Types){
 		for(let i=0,l=this.Types[Type].Required.length;i<l;i++){
 			if(this.Types[Type].Required[i] in Shell)continue;
-			let V=await this.Types[Type].Options[this.Types[Type].Required[i]](Data[this.Types[Type].Required[i]],this);
-			if(!V)return false;
+			let V=await this.Types[Type].Options[this.Types[Type].Required[i]](Data[this.Types[Type].Required[i]],this,Meta);
+			if(V===false)return false;
 			else Shell[this.Types[Type].Required[i]]=V;
 		}
 		for(let i=0,o=Object.keys(this.Types[Type].Options),l=o.length;i<l;i++){
-			if(o[i] in Shell)continue;
-			let V=await this.Types[Type].Options[o[i]](Data[o[i]],this);
-			if(!V)return false;
-			else Shell[o[i]]=V;
+			if(o[i] in Shell||!(o[i] in Data))continue;
+			let V=await this.Types[Type].Options[o[i]](Data[o[i]],this,Meta);
+			if(V!==false)Shell[o[i]]=V;
 		}
 	}else return false;
 	return Shell;
 }
 B.prototype.Identify=function(Element){
-	var Type=[];
+	if(!Element)return false;
 	let O=Object.keys(Element);
 	let T=Object.keys(this.Types);
 	let Ts=[];
-	for(let i=0,l=T.length;i<l;i++)if(O.every(E=>E in this.Types[T[i]]))Ts.push(T[i]);
+	for(let i=0,l=T.length;i<l;i++)if(O.every(E=>E in this.Types[T[i]].Options))Ts.push(T[i]);
 	if(Ts.length!=1)return false;
-	else return Type[0];
+	else return Ts[0];
 }
 B.prototype.Key=function(Meta,Type){
 	for(let i=0,l=this.Meta.Keys.length;i<l;i++)Type[this.Meta.Keys[i]]=Meta[this.Meta.Keys[i]];
@@ -145,25 +144,11 @@ B.prototype.Names={
 		for(let i=0,l=Data.length;i<l;i++)if(typeof Data[i]!='object'||Data[i]===null||!this.Identify(Data[i]))return false;
 		return true;
 	},
-	Read:function(Read){
-		if(typeof Read!='object'||Read===null)return false;
-		if((typeof Read.Keys!='object'||Read.Keys===null)&&(typeof Read.Filter!='object'||Read.Filter===null))return false;
-		if(typeof Read.List!='boolean'&&Read.List!==undefined&&Read.List!==null)return false;
-		return true;
-	},
-	Update:function(Update){
-		if(typeof Update!='object'||Update===null)return false;
-		if((typeof Update.Meta!='object'||Update.Meta===null)&&(!Array.isArray(Update.Updates)||Update.Updates.length==0))return false;
-		if(Update.Updates)for(let i=0,l=Update.Updates.length;i<l;i++)if((typeof Update.Updates[i].Element!='object'||Update.Updates[i].Element===null)&&(typeof Update.Updates[i].Replace!='object'||Update.Updates[i].Replace===null))return false;
-		if(Update.Meta)if(!this.Scrub(Update.Meta))return false;
-		return true;
-	}
 };
 B.prototype.Create=async function(Meta,Data,Auth,Lang){
 	let Authorized=this.Authenticate(Auth,1);
 	if(!Authorized)return this.E('ACCESSDENIED',Lang);
-	console.log('Creat Func',Meta);
-	Meta=await this.Scrub(null,Meta);
+	Meta=await this.Scrub(null,Meta,Meta);
 	if(!Meta)return this.E('BADTYPE',Lang);
 	if(Data&&!this.V('Data',Data))return false;
 	let Recipt=true;
@@ -172,83 +157,91 @@ B.prototype.Create=async function(Meta,Data,Auth,Lang){
 	else if(Recipt&&!Success)Recipt=false;
 	if(Data)for(let i=0,l=Data.length;i<l;i++){
 		let Type=await this.Identify(Data[i]);
-		let Element=await this.Scrub(Type,Data[i]);
+		let Element=await this.Scrub(Type,Data[i],Meta);
+		if(!Element)return this.E('BADTYPE',Lang);
 		this.Key(Meta,Element);
 		let Result=await this.Types[Type].Store.Create(Element,this);
 		if(Recipt&&!Result)Recipt=false;
 	}
 	let Keys={};
 	for(let i=0,l=this.Meta.Keys.length;i<l;i++)Keys[this.Meta.Keys[i]]=Meta[this.Meta.Keys[i]];
-	console.log('Keys:',Keys)
 	return Keys;
 }
-B.prototype.Read=async function(Read,Engine,Auth,Lang){
+B.prototype.Search=async function(){
+	// SEARCH ENGINE HERE
+}
+B.prototype.Read=async function(Keys,Engine,Auth,Lang){
 	let Authorized=this.Authenticate(Auth,1);
 	if(!Authorized)return this.E('ACCESSDENIED',Lang);
-	if(!this.V('Read',Read))return false;
 	if(!this.V('Engine',Engine))return false;
-	let Renders=[];
-	let Matches=await this.Meta.Store.Read(Read.Keys,Read.Filter,this);
-	if(!Matches)return this.E('MISSING');
-	let Recipt=true;
-	for(let i=0,l=Matches.length;i<l;i++){
-		let Meta=Matches[i];
-		let Keys={};
-		for(let i2=0,l2=this.Meta.Keys.length;i2<l2;i2++)Keys[this.Meta.Keys[i2]]=Meta[this.Meta.Keys[i2]];
-		let Data=[];
-		let StoresQueried=[];
-		if(Read.Data)for(let i2=0,o=Object.keys(this.Types),l2=o.length;i2<l2;i2++){
-			if(StoresQueried.includes(this.Types[o[i2]].Store))continue;
-			else StoresQueried.push(this.Types[o[i2]].Store);
-			let D=await this.Stores[o[i2]].Read(Keys,null,this);
-			if(D)Data.push(D);
-			else Recipt=false;
-		}
-		let Render=await this.Engines[Read.Engine](Meta,Data,this);
-		Renders.push(Render);
+	let Meta=await this.Meta.Store.Read(Keys,this);
+	if(!Meta)return this.E('MISSING'); 
+	let Data=[];
+	let StoresQueried=[];
+	for(let i=0,o=Object.keys(this.Types),l=o.length;i<l;i++){
+		if(StoresQueried.includes(this.Types[o[i]].Store))continue;
+		else StoresQueried.push(this.Types[o[i]].Store);
+		let D=await this.Types[o[i]].Store.Read(Keys,this);
+		if(D)for(let n=0,s=D.length;n<s;n++)Data.push(D[n]);
 	}
-	return Renders;
+	let Render=await this.Engines[Engine](Meta,Data,this);
+	return Render;
 }
-B.prototype.Update=async function(Update,Auth,Lang){
-	// ADD FUNC FOR UPDATING KEYS!!!!!!!!!
+
+
+
+
+
+
+
+
+
+
+B.prototype.Update=async function(Keys,Element,Update,Auth,Lang){
+	console.log('Update:');
+	console.log(Element);
 	console.log(Update);
-	if(!this.V('Update',Update))throw new Error('Up obj failed');
-	let Meta=await this.Meta.Store.Read(Update.Keys,null,this);
+	let Meta=await this.Meta.Store.Read(Keys,this);
 	if(!Meta)return this.E('MISSING');
 	let Authorized=this.Authenticate(Auth,2,Meta);
 	if(!Authorized)return this.E('ACCESSDENIED',Lang);
-	let Recipt=true;
-	if(Update.Meta){
-		let M=await this.Scrub(null,Update.Meta);
-		if(!M)return this.E('BADTYPE',Lang);
-		let Result=await this.Meta.Store.Update(Meta,M,this);
-		if(!Result)Recipt=false;
-	}
-	// fix if keys were changed !!!!
-	if(Update.Updates)for(let i=0,l=Update.Updates.length;i<l;i++){
-		let Result=false;
-		let EType=await this.Identify(Update.Updates[i].Element);
-		let RType=await this.Identify(Update.Updates[i].Replace);
-		if(EType&&RType&&EType==RType){
-			let Element=await this.Scrub(EType,Update.Updates[i].Element);
-			let Replace=await this.Scrub(RType,Update.Updates[i].Replace);
-			this.Key(Meta,Update.Updates[i].Element);
-			Result=await this.Types[EType].Store.Update(Element,Replace,this);
-		}else if(!EType&&RType){
-			let Element=await this.Scrub(RType,Update.Updates[i].Replace);
-			this.Key(Meta,Update.Updates[i].Element);
-			Result=await this.Types[RType].Store.Create(Element,this);
-		}else if(EType&&!RType){
-			let Element=await this.Scrub(EType,Update.Updates[i].Element);
-			this.Key(Meta,Update.Updates[i].Element);
-			Result=await this.Types[EType].Store.Delete(Element,this);
-		}
-		if(Recipt&&!Result)Recipt=false;
-	}
-	return Recipt;
+	let MetaE=await this.Scrub(null,Element,Meta);
+	let EType=this.Identify(Element);
+	let UType=this.Identify(Update);
+	if(MetaE)return await this.Meta.Store.Update(MetaE,Update,this);
+	else if(EType&&UType&&EType==UType){
+		let E=await this.Scrub(EType,Element,Meta);
+		let U=await this.Scrub(UType,Update,Meta);
+		if(!E||!U)return this.E('BADTYPE',Lang);
+		this.Key(Meta,E);
+		return await this.Types[EType].Store.Update(E,U,this);
+	}else if(!EType&&UType){
+		let E=await this.Scrub(UType,Update,Meta);
+		if(!E)return this.E('BADTYPE',Lang);
+		this.Key(Meta,E);
+		return await this.Types[UType].Store.Create(E,this);
+	}else if(EType&&!UType){
+		let E=await this.Scrub(EType,Element,Meta);
+		if(!E)return this.E('BADTYPE',Lang);
+		this.Key(Meta,E);
+		return await this.Types[EType].Store.Delete(E,this);
+	}else return this.E('BADTYPE',Lang);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
 B.prototype.Delete=async function(Keys,Auth,Lang){
-	let Meta=await this.Meta.Store.Read(Keys,null,this);
+	let Meta=await this.Meta.Store.Read(Keys,this);
 	if(!Meta)return this.E('MISSING');
 	let Authorized=this.Authenticate(Auth,2,Meta);
 	if(!Authorized)return this.E('ACCESSDENIED',Lang);
