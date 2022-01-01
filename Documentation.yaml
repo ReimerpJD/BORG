@@ -9,41 +9,24 @@ Keys, Documentation Format: # {$}
 	Errors: //&
 	Comment: //-
 
-Documentation Reference:
-	Meta: a valid Meta object (defined by instance Meta definition function)
-	Data: an array containing valid Type objects
-	Keys: an object of keys necessary to access a Resource Meta
-	Update: an object defining some Type creation, update, or deletion
-
-Actions:
-	0: Read/Search
-	1: Create New
-	2: Update Existing
-	3: Delete Existing
-
 Framework API:
-	Create: Meta, Data, Auth, Lang
-	Read: Read, Engine, Auth, Lang
-	Update: Keys, Element, Update, Auth, Lang
-	Delete: Keys, Auth, Lang
+	Search: Filters, Lang
+	Create: Meta, Data, Lang
+	Read: Keys, Engine, Lang
+	Update: Element, Update, Lang
+	Delete: Keys, Lang
 
 Store API:
-	Create: Data, Framework
-	Read: Keys, Framework
-	Update: Old, New, Framework
-	Delete: Data, Multiple, Framework
+	Search: Filters, Framework # returns all matching results []
+	Create: Data, Framework # returns inserted keys {}
+	Read: Keys, Framework # returns one result {}
+	Update: Keys, Old, New, Framework # returns true/false
+	Delete: Data, Framework # returns true/false
 
 Input Functions:
 	Parameters: Value, Framework, Meta
 	Returns: scrubbed value or false
 
 Engine Parameters: Meta, Data, Framework
-
-Instance Settings Object:
-	Authenticate: function (Credentials, Action, -Meta)
-	Error: object
-
-Settings Object:
-	Authentication function
 
 # leave scope alone in ALL user-defined functions and objects (no bin() or call() in any)

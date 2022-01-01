@@ -1,278 +1,187 @@
-//# BORG Framework
-//- Broadscale Organizational Resource Generator
-function B(Settings){
+function B(){
 	this.Stores={};
 	this.Inputs={};
 	this.Types={};
 	this.Engines={};
-	this.Settings={};
-	this.Settings=this.V('Settings',Settings)?Settings:{};
+}
+B.prototype.Console=function(Console){
+	this.Test('CONSOLE',[Console]);
+	this.Log=Console;
+}
+B.prototype.Language=function(Code,Language){
+	this.Test('NAME',[Code]);
+	this.Test('LANGUAGE',[Language]);
+	this.Languages[Code]=Language;
 }
 B.prototype.Store=function(Name,API){
-	if(this.V('Name',Name)&&this.V('API',API))this.Stores[Name]=API;
-	else throw new Error(this.E('CONFIGFAILURE'));
+	this.Test('NAME',[Name]);
+	this.Test('API',[API]);
+	this.Stores[Name]=API;
 }
 B.prototype.Input=function(Name,Function){
-	if(this.V('Name',Name)&&this.V('Function',Function))this.Inputs[Name]=Function;
-	else throw new Error(this.E('CONFIGFAILURE'));
+	this.Test('NAME',[Name]);
+	this.Test('FUNCTION',[Function]);
+	this.Inputs[Name]=Function;
 }
-B.prototype.Meta=function(Options,Store,Required,Keys){
-	if(this.V('Options',Options)&&this.V('Store',Store)&&this.V('Required',Required,false)&&this.V('RequiredOptions',{Required:Required?Required:[],Options:Options})&&this.V('Keys',Keys,false)&&this.V('KeyOptions',{Keys:Keys,Options:Options}))this.Meta={Store:this.Stores[Store],Options:this.Map(Options,true),Required:Required?Required:[],Keys:Keys};
-	else throw new Error(this.E('CONFIGFAILURE'));
+B.prototype.Meta=function(Identifier,Options,Required,Keys,Store){
+	this.Test('NAME',[Identifier]);
+	this.Identifier=Identifier;
+	this.Test('OPTIONS',[Options,Required,Keys,true]);
+	this.Test('STORE',[Store]);
+	this.Meta={Store:this.Stores[Store],Options:this.Map(Options),Required:Required,Keys:Keys,Identifier:Identifier};
 }
-B.prototype.Type=function(Name,Options,Store,Required){
-	if(!this.Meta)throw new Error(this.E('CONFIGFAILURE'));
-	if(this.V('Name',Name)&&this.V('Options',Options)&&this.V('Store',Store)&&this.V('Required',Required,false)&&this.V('RequiredOptions',{Required:Required?Required:[],Options:Options}))this.Types[Name]={Store:this.Stores[Store],Options:this.Map(Options),Required:Required?Required:[]};
-	else throw new Error(this.E('CONFIGFAILURE'));
+B.prototype.Type=function(Name,Options,Required,Keys,Store){
+	this.Test('NAME',[Name]);
+	this.Test('OPTIONS',[Options,Required,Keys]);
+	this.Test('STORE',[Store]);
+	this.Types[Name]={Store:this.Stores[Store],Options:this.Map(Options),Required:Required,Keys:Keys};
 }
 B.prototype.Engine=function(Name,Function){
-	if(this.V('Name',Name)&&this.V('Function',Function))this.Engines[Name]=Function
-} 
-B.prototype.Map=function(Options,Meta){
-	if(!Meta&&this.Meta.Keys.some(E=>E in Options))throw new Error(this.E('CONFIGFAILURE'));
-	let Shell={};
-	for(let i=0,o=Object.keys(Options),l=o.length;i<l;i++)Shell[o[i]]=this.Inputs[Options[o[i]]];
-	if(!Meta)for(let i=0,l=this.Meta.Keys.length;i<l;i++)Shell[this.Meta.Keys[i]]=this.Inputs[this.Meta.Options[this.Meta.Keys[i]]];
-	return Shell;
+	this.Test('NAME',[Name]);
+	this.Test('FUNCTION',[Function]);
+	this.Engines[Name]=Function;
 }
-B.prototype.Authenticate=function(Auth,Action,Meta){return typeof this.Settings.Authenticate=='function'?this.Settings.Authenticate(Auth,Action,Meta):true}
-B.prototype.Scrub=async function(Type,Data,Meta){
-	if(typeof Data!='object'||Data===null)return false
-	let Shell={}
-	for(let i=0,l=this.Meta.Keys.length;i<l;i++){
-		if(this.Meta.Keys[i] in Shell)continue;
-		let V=await this.Meta.Options[this.Meta.Keys[i]](Data[this.Meta.Keys[i]],this,Meta);
-		if(V===false)return false;
-		else Shell[this.Meta.Keys[i]]=V;
+B.prototype.Search=function(Filters,Lang){
+	return await this.Meta.Store.Search(Filters,this).then(R=>{return R?R:this.Lang(Lang,'STOREFAILURE')});
+}
+B.prototype.Create=function(Meta,Data,Lang){
+	let M=await this.Scrub(Meta);
+	if(!M)return this.Lang(Lang,'BADTYPE');
+	if(!Array.isArray(Data))return this.Lang(Lang,'BADDATA');
+	let D=[];
+	for(let i=0,l=Data.length;i<l;i++){
+		let d=await this.Scrub(Data[i],Meta);
+		if(!d)return this.Lang(Lang,'BADDATA');
+		d.push(d);
 	}
-	if(Type===null){
-		for(let i=0,l=this.Meta.Required.length;i<l;i++){
-			if(this.Meta.Required[i] in Shell)continue;
-			let V=await this.Meta.Options[this.Meta.Required[i]](Data[this.Meta.Required[i]],this,Meta);
-			if(V===false)return false;
-			else Shell[this.Meta.Required[i]]=V;
-		}
-		for(let i=0,o=Object.keys(this.Meta.Options),l=o.length;i<l;i++){
-			if(o[i] in Shell)continue;
-			let V=await this.Meta.Options[o[i]](Data[o[i]],this,Meta);
-			if(V!==false)Shell[o[i]]=V;
-		}
-	}else if(Type in this.Types){
-		for(let i=0,l=this.Types[Type].Required.length;i<l;i++){
-			if(this.Types[Type].Required[i] in Shell)continue;
-			let V=await this.Types[Type].Options[this.Types[Type].Required[i]](Data[this.Types[Type].Required[i]],this,Meta);
-			if(V===false)return false;
-			else Shell[this.Types[Type].Required[i]]=V;
-		}
-		for(let i=0,o=Object.keys(this.Types[Type].Options),l=o.length;i<l;i++){
-			if(o[i] in Shell||!(o[i] in Data))continue;
-			let V=await this.Types[Type].Options[o[i]](Data[o[i]],this,Meta);
-			if(V!==false)Shell[o[i]]=V;
-		}
-	}else return false;
-	return Shell;
-}
-B.prototype.Identify=function(Element){
-	if(!Element)return false;
-	let O=Object.keys(Element);
-	let T=Object.keys(this.Types);
-	let Ts=[];
-	for(let i=0,l=T.length;i<l;i++)if(O.every(E=>E in this.Types[T[i]].Options))Ts.push(T[i]);
-	if(Ts.length!=1)return false;
-	else return Ts[0];
-}
-B.prototype.Key=function(Meta,Type){
-	for(let i=0,l=this.Meta.Keys.length;i<l;i++)Type[this.Meta.Keys[i]]=Meta[this.Meta.Keys[i]];
-}
-B.prototype.E=function(E,Lang){
-	if(typeof Lang=='string'&&Lang in this.Languages&&typeof this.Languages[Lang]=='object'&&E in this.Languages[Lang])return this.Languages[Lang][E];
-	else if(this.Settings.Errors&&E in this.Settings.Error)return this.Settings.Error[E];
-	else if(E in this.English)return this.English[E];
-	else return 'An unexpected error prevented normal operation of the framework';
-}
-B.prototype.V=function(Name,Value,Required=true){
-	if(typeof Name!='string')throw new Error(this.E('BADNAME'));
-	if(!(Name in this.Names))throw new Error(this.E('MISSINGNAME'));
-	return Required?this.Names[Name].call(this,Value):typeof Value=='undefined'||Value===null?true:this.Names[Name].call(this,Value);
-}
-B.prototype.Names={
-	Name:function(Name){return typeof Name=='string'},
-	API:function(API){return (typeof API=='object'&&typeof API.Create=='function'&&typeof API.Read=='function'&&typeof API.Update=='function'&&typeof API.Delete=='function')},
-	Function:function(Function){return typeof Function=='function'},
-	Options:function(Options){
-		if(typeof Options!='object')return false;
-		for(let i=0,o=Object.keys(Options),l=o.length;i<l;i++){
-			if(!(Options[o[i]] in this.Inputs))return false;
-		}
-		return true;
-	},
-	Store:function(Store){return (typeof Store=='string'&&Store in this.Stores)},
-	Engine:function(Engine){return (typeof Engine=='string'&&Engine in this.Engines)},
-	Required:function(Required){return Array.isArray(Required)},
-	RequiredOptions:function(Inputs){
-		if(typeof Inputs!='object'||!Array.isArray(Inputs.Required)||typeof Inputs.Options!='object')return false;
-		if(Inputs.Required.length==0)return true;
-		return Inputs.Required.every(E=>{return E in Inputs.Options});
-	},
-	Keys:function(Keys){return (Array.isArray(Keys)&&Keys.length>0)},
-	KeyOptions:function(Inputs){
-		if(typeof Inputs!='object'||!Array.isArray(Inputs.Keys)||Inputs.Keys.length==0||typeof Inputs.Options!='object')return false;
-		return Inputs.Keys.every(E=>{return E in Inputs.Options});
-	},
-	Filters:function(Filters){
-		if(typeof Filters!='Object'||Filters===null)return false;
-		for(let i=0,o=Object.keys(Filters),l=o.length;i<l;i++){
-			if(!Filters[o[i]] in this.Types)return false;
-			else if(typeof Filters[o[i]]=='object'||Filters[o[i]]!==null)for(let i2=0,o2=Object.keys(Filters[o[i]]),l2=o2.length;i2<l2;i2++)if(!o2[i2] in this.Types[Filters[o[i]]]||typeof Filters[o[i]][o2[i2]]!='boolean')return false;
-			else if(typeof Filters[o[i]]!='boolean')return false;
-		}
-		return true;
-	},
-	Filter:function(Filter){
-		if(typeof Filter!='Object'||Filter===null)return false;
-		for(let i=0,o=Object.keys(Filter),l=o.length;i<l;i++)if(!Filter[o[i]] in this.Meta.Options)return false;
-		return true;
-	},
-	Settings:function(Settings){
-		if(typeof Settings!='object'||Settings===null)return false;
-		if(Settings.Authenticate&&typeof Settings.Authenticate!='function')return false;
-		if(Settings.Error&&typeof Settings.Error!='object')return false;
-		return true;
-	},
-	Data:function(Data){
-		if(!Array.isArray(Data))return false;
-		for(let i=0,l=Data.length;i<l;i++)if(typeof Data[i]!='object'||Data[i]===null||!this.Identify(Data[i]))return false;
-		return true;
-	},
-};
-B.prototype.Create=async function(Meta,Data,Auth,Lang){
-	let Authorized=this.Authenticate(Auth,1);
-	if(!Authorized)return this.E('ACCESSDENIED',Lang);
-	Meta=await this.Scrub(null,Meta,Meta);
-	if(!Meta)return this.E('BADTYPE',Lang);
-	if(Data&&!this.V('Data',Data))return false;
-	let Recipt=true;
-	let Success=await this.Meta.Store.Create(Meta,this);
-	if(!Success)return false;
-	else if(Recipt&&!Success)Recipt=false;
-	if(Data)for(let i=0,l=Data.length;i<l;i++){
-		let Type=await this.Identify(Data[i]);
-		let Element=await this.Scrub(Type,Data[i],Meta);
-		if(!Element)return this.E('BADTYPE',Lang);
-		this.Key(Meta,Element);
-		let Result=await this.Types[Type].Store.Create(Element,this);
-		if(Recipt&&!Result)Recipt=false;
+	let Recipt=[];
+	let Keys=await this.Meta.Store.Create(Meta,this);
+	Recipt.push(Keys);
+	for(let i=0,l=D.length;i<l;i++){
+		this.Key(Keys,D[i]);
+		let keys=await this.Types[D[i][this.Identifier]].Store.Create(D[i],this);
+		Recipt.push(keys);
 	}
-	let Keys={};
-	for(let i=0,l=this.Meta.Keys.length;i<l;i++)Keys[this.Meta.Keys[i]]=Meta[this.Meta.Keys[i]];
-	return Keys;
-}
-B.prototype.Search=async function(){
-	// SEARCH ENGINE HERE
-}
-B.prototype.Read=async function(Keys,Engine,Auth,Lang){
-	let Authorized=this.Authenticate(Auth,1);
-	if(!Authorized)return this.E('ACCESSDENIED',Lang);
-	if(!this.V('Engine',Engine))return false;
-	let Meta=await this.Meta.Store.Read(Keys,this);
-	if(!Meta)return this.E('MISSING'); 
-	let Data=[];
-	let StoresQueried=[];
-	for(let i=0,o=Object.keys(this.Types),l=o.length;i<l;i++){
-		if(StoresQueried.includes(this.Types[o[i]].Store))continue;
-		else StoresQueried.push(this.Types[o[i]].Store);
-		let D=await this.Types[o[i]].Store.Read(Keys,this);
-		if(D)for(let n=0,s=D.length;n<s;n++)Data.push(D[n]);
-	}
-	let Render=await this.Engines[Engine](Meta,Data,this);
-	return Render;
-}
-
-
-
-
-
-
-
-
-
-
-B.prototype.Update=async function(Keys,Element,Update,Auth,Lang){
-	console.log('Update:');
-	console.log(Element);
-	console.log(Update);
-	let Meta=await this.Meta.Store.Read(Keys,this);
-	if(!Meta)return this.E('MISSING');
-	let Authorized=this.Authenticate(Auth,2,Meta);
-	if(!Authorized)return this.E('ACCESSDENIED',Lang);
-	let MetaE=await this.Scrub(null,Element,Meta);
-	let EType=this.Identify(Element);
-	let UType=this.Identify(Update);
-	if(MetaE)return await this.Meta.Store.Update(MetaE,Update,this);
-	else if(EType&&UType&&EType==UType){
-		let E=await this.Scrub(EType,Element,Meta);
-		let U=await this.Scrub(UType,Update,Meta);
-		if(!E||!U)return this.E('BADTYPE',Lang);
-		this.Key(Meta,E);
-		return await this.Types[EType].Store.Update(E,U,this);
-	}else if(!EType&&UType){
-		let E=await this.Scrub(UType,Update,Meta);
-		if(!E)return this.E('BADTYPE',Lang);
-		this.Key(Meta,E);
-		return await this.Types[UType].Store.Create(E,this);
-	}else if(EType&&!UType){
-		let E=await this.Scrub(EType,Element,Meta);
-		if(!E)return this.E('BADTYPE',Lang);
-		this.Key(Meta,E);
-		return await this.Types[EType].Store.Delete(E,this);
-	}else return this.E('BADTYPE',Lang);
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-B.prototype.Delete=async function(Keys,Auth,Lang){
-	let Meta=await this.Meta.Store.Read(Keys,this);
-	if(!Meta)return this.E('MISSING');
-	let Authorized=this.Authenticate(Auth,2,Meta);
-	if(!Authorized)return this.E('ACCESSDENIED',Lang);
-	let Recipt=true;
-	let StoresQueried=[];
-	for(let i=0,o=Object.keys(this.Types),l=o.length;i<l;i++){
-		if(StoresQueried.includes(this.Types[o[i]].Store))continue;
-		else StoresQueried.push(this.Types[o[i]].Store);
-		let Result=await this.Types[o[i]].Store.Delete(Keys,true,this);
-		if(Recipt&&!Result)Recipt=false;
-	}
-	delete StoresQueried;
-	let Result=await this.Types.Meta.Store.Delete(Keys,false,this);
-	if(Recipt&&!Result)Recipt=false;
 	return Recipt;
 }
-//B.Router=function(){}
-//B.Router.prototype.Assign=function(Name,Handler,Framework){}
-//B.Router.prototype.Process=function(Name,Input){}
-//B.Documentation=function(){}
-B.prototype.English={
-	CONFIGFAILURE:'A configuration process failed without throwing an error',
-	BADNAME:'The Name provided was not a string',
-	MISSINGNAME:'The Name provided was not in the list of valid Names',
-	ACCESSDENIED:'You are not authorized to perform the action you attempted',
-	MISSING:'The resource you requested was not found',
-	BADTYPE:'The input provided contained an invalid type',
-	BADENGINE:'The requested format was not valid',
-	BADFILTER:'The search filters provided were not valid',
-	BADFILTERS:'The filters provided were not valid',
-	BADUPDATE:'The Update request was invalid, or did not contain enough information',
-};
-B.prototype.Languages={};
+B.prototype.Read=function(Keys,Engine,Lang){
+	if(typeof Keys!='object'||Keys===null||Object.keys(Keys).every(K=>this.Meta.Keys.includes(K))||this.Meta.Keys.every(K=>K in Keys))return this.Lang(Lang,'BADKEYS');
+	if(!(Engine in this.Engines))return this.Lang(Lang,'BADENGINE');
+	let Meta=await this.Meta.Store.Read(Keys,this);
+	if(!Meta)return this.Lang(Lang,'MISSING');
+	let Data=[];
+	let Queried=[];
+	for(let i=0,o=Object.keys(this.Types),l=o.length;i<l;i++){
+		if(Queried.includes(this.Types[o[i]].Store))continue;
+		else Queried.push(this.Types[o[i]].Store);
+		let D=await this.Types[o[i]].Store.Search(Keys,this);
+		if(D)Data.push(...D);
+	}
+	return await this.Engines[Engine](Meta,Data,this);
+}
+B.prototype.Update=function(Keys,Element,Operation,Lang){
+	if(typeof Keys!='object'||Keys===null||Object.keys(Keys).every(K=>this.Meta.Keys.includes(K))||this.Meta.Keys.every(K=>K in Keys))return this.Lang(Lang,'BADKEYS');
+	if(typeof Operation!='boolean'&&(typeof Operation!='object'||Operation===null))return this.Lang(Lang,'BADUPDATE');
+	let Meta=await this.Meta.Store.Read(Keys,this);
+	if(!Meta)return this.Lang(Lang,'MISSING');
+	let Type=!Element[this.Identifier]?Type=this.Meta:this.Types[Element[this.Identifier]];
+	if(!Type||typeof Operation=='boolean'&&Type==this.Meta)return this.Lang(Lang,'BADUPDATE');
+	if(Operation===true){
+		return await Type.Store.Create(Element,this).then(R=>{return R?R:this.Lang(Lang,'STOREFAILURE')});
+	}else if(Operation===false){
+		return await Type.Store.Delete(Element,this).then(R=>{return R?R:this.Lang(Lang,'STOREFAILURE')});
+	}else{
+		let o=Object.keys(Operation);
+		for(let i=0,l=o.length;i<l;i++)if(!(o[i] in Type.Options))return this.Lang(Lang,'BADUPDATE');
+		for(let i=0,l=o.length;i<l;i++)Operation[o[i]]=Type.Options(Operation[o[i]],Meta,this);
+		for(let i=0,l=o.length;i<l;i++)if(Operation[o[i]]===false)return this.Lang(Lang,'BADUPDATE');
+		return await Type.Store.Update(Element,Operation,this).then(R=>{return R?R:this.Lang(Lang,'STOREFAILURE')});
+	}
+}
+B.prototype.Delete=function(Keys,Lang){
+	if(typeof Keys!='object'||Keys===null||Object.keys(Keys).every(K=>this.Meta.Keys.includes(K))||this.Meta.Keys.every(K=>K in Keys))return this.Lang(Lang,'BADKEYS');
+	let Meta=await this.Meta.Store.Read(Keys,this);
+	if(!Meta)return this.Lang(Lang,'MISSING');
+	let Recipt=[];
+	let Queried=[];
+	for(let i=0,o=Object.keys(this.Types),l=o.length;i<l;i++){
+		if(Queried.includes(this.Types[o[i]].Store))continue;
+		else Queried.push(this.Types[o[i]].Store);
+		let D=await this.Types[o[i]].Store.Delete(Keys,this);
+		if(D)Data.push(...D);
+	}
+	await this.Meta.Store.Delete(Keys,this).then(R=>Recipt.push(R));
+	return Recipt;
+}
+B.prototype.Scrub=function(Options,Meta){
+	let Type;
+	if(!Options[this.Identifier])Type=this.Meta;
+	else if(this.Identifier in this.Types)Type=this.Types[Options[this.Identifier]];
+	else return false;
+	for(let i=0,l=Type.Keys.length;i<l;i++)if(!Type.Keys[i] in Options)return false;
+	for(let i=0,l=Type.Required.length;i<l;i++)if(!Type.Required[i] in Options)return false;
+	let Shell={};
+	for(let i=0,o=Object.keys(Options),l=o.length;i<l;i++){
+		Shell[o[i]]=await Type.Options[O[i]](Options[O[i]],Meta,this);
+		if(!Shell[o[i]])return false;
+	}
+	return Shell;
+}
+B.prototype.Key=function(Meta,Type){for(let i=0,l=this.Meta.Keys.length;i<l;i++)Type[this.Meta.Keys[i]]=Meta[this.Meta.Keys[i]];}
+B.prototype.Map=function(Options){
+	let Shell={};
+	for(let i=0,o=Object.keys(Options),l=o.length;i<l;i++)Shell[o[i]]=this.Inputs[Options[o[i]]];
+	return Shell;
+}
+B.prototype.Test=function(Test,Inputs){
+	if(!this.Testers[Test].apply(this,Inputs))throw new Error(this.Log[Test]);
+}
+B.prototypes.Testers={
+	CONSOLE:function(Value){
+		if(typeof Value!='object'||Value===null)return false;
+		let Required=Object.keys(this.Log);
+		for(let i=0,l=Required.length;i<l;i++)if(!(Required[i] in Value)||typeof Value[Required[i]]!='string')return false;
+		return true;
+	},
+	LANGUAGE:function(Value){
+		if(typeof Value!='object'||Value===null)return false;
+		let Required=Object.keys(this.Languages.Default);
+		for(let i=0,l=Required.length;i<l;i++)if(!(Required[i] in Value)||typeof Value[Required[i]]!='string')return false;
+		return true;
+	}
+	NAME:function(Value){return typeof Value=='string'},
+	API:function(Value){return(typeof Value=='object'&&typeof Value.Create=='function'&&typeof Value.Read=='function'&&typeof Value.Update=='function'&&typeof Value.Delete=='function')},
+	FUNCTION:function(Value){return typeof Value=='function'},
+	OPTIONS:function(Options,Required,Keys,Meta){
+		if(typeof Options!='object'||Options==null||!Array.isArray(Required)||!Array.isArray(Keys))return false;
+		if(!Meta)for(let i=0,o=Object.keys(Options),l=o.length;i<l;i++)if(this.Meta.Keys.includes(Options[o[i]]))return false;
+		for(let i=0,o=Object.keys(Options),l=o.length;i<l;i++)if(!(Options[o[i]] in this.Inputs))return false;
+		for(let i=0,l=Required.length;i<l;i++)if(!(Required[i] in Options))return false;
+		for(let i=0,l=Keys.length;i<l;i++)if(!(Keys[i] in Options))return false;
+		return true;
+	},
+	STORE:function(Value){return Value in this.Stores},
+}
+B.prototype.Log={
+	CONSOLE:'The Console parameter did not contain the necessary messages',
+	LANGUAGE:,
+	NAME:'The Name parameter was not a string',
+	API:'The API parameter was not valid',
+	FUNCTION:'The Function parameter was not a function',
+	OPTIONS:'Validation of the Options, Required, and Keys parameters failed',
+	STORE:'The Store parameter did not match a registered Store',
+}
+B.prototype.Lang=function(Lang,Message){return Lang in this.Languages?this.Languages[Lang][Message]:this.Languages.Default[Message]}
+B.prototype.Languages={
+	Default:{
+		BADTYPE:'The input provided contained an invalid type',
+		BADDATA:'The Data provided was not an array',
+		BADKEYS:'The Keys provided were not valid',
+		BADENGINE:'The requested format was not valid',
+		MISSING:'The resource you requested was not found',
+		BADUPDATE:'The inputs provided were not sufficient to perform an update',
+		STOREFAILURE:'There was a data storage failure that interrupted the operation attempted',
+	}
+}
+//B.Documentation=function(File){}
 module.exports=B
