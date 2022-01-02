@@ -44,18 +44,19 @@ B.prototype.Engine=function(Name,Function){
 B.prototype.Search=function(Filters){
 	return await this.Meta.Store.Search(this,Filters).catch(()=>{throw 'STOREFAILURE'});
 }
-B.prototype.Create=function(Meta){
+B.prototype.Create=function(Meta,Data){
 	if(Meta[this.Identifier])throw 'BADTYPE';
 	await this.Scrub(Meta).catch(()=>throw 'BADTYPE');
 	let Keys=await this.Meta.Store.Create(this,Meta).catch(()=>{throw 'STOREFAILURE'});
 	if(!Keys)throw 'STOREFAILURE';
-	return new B.Resource(this,Keys);
+	this.Key(Keys,Meta);
+	return new B.Resource(this,Meta);
 }
 B.prototype.Open=function(Keys){
 	this.Scrub(Keys).catch(()=>throw 'BADKEYS');
 	let Meta=await this.Meta.Store.Read(this,Keys).catch(()=>{throw 'STOREFAILURE'});
 	if(!Meta)throw 'MISSING';
-	return new B.Resource(this,Keys);
+	return new B.Resource(this,Meta);
 }
 B.prototype.Scrub=function(Options,Meta,Keys){
 	let Type;
@@ -128,18 +129,14 @@ B.prototype.Languages={
 		STOREFAILURE:'There was a data storage failure that interrupted the operation attempted',
 	}
 }
-//B.Documentation=function(File){}
-B.Resource=function(Keys,Framework){
+B.Resource=function(Framework,Meta){
+	this.Opened=Date.now();
 	this.Framework=Framework;
-	this.Keys=Keys;
+	this.Meta=Meta;
+	this.Keys=this.Framework.Key(this.Meta,{});
 }
-B.Resource.Meta=function(){
-	return await this.Framework.Meta.Store.Read(this.Framework,this.Keys).catch(()=>{throw 'STOREFAILURE'}).then(Meta=>{if(!Meta){throw 'MISSING'}else{return Meta}});
-}
-B.Resource.Render=function(Engine){
+B.Resource.prototype.Render=function(Engine){
 	if(!Engine in this.Framework.Engines)throw 'BADENGINE';
-	let Meta=await this.Framework.Meta.Store.Read(this.Framework,this.Keys).catch(()=>{throw 'STOREFAILURE'});
-	if(!Meta)throw 'MISSING';
 	let Data=[];
 	let Queried=[];
 	for(let i=0,o=Object.keys(this.Framework.Types),l=o.length;i<l;i++){
@@ -148,11 +145,9 @@ B.Resource.Render=function(Engine){
 		let D=await this.Framework.Types[o[i]].Store.Search(this.Framework,this.Keys).catch(()=>{throw 'STOREFAILURE'});
 		if(D)Data.push(...D);
 	}
-	return await this.Engines[Engine](this,Meta,Data);
+	return await this.Engines[Engine](this,this.Meta,Data);
 }
-B.Resource.Open=function(Filters){
-	let Meta=await this.Framework.Meta.Store.Read(this.Framework,this.Keys).catch(()=>{throw 'STOREFAILURE'});
-	if(!Meta)throw 'MISSING';
+B.Resource.prototype.Open=function(Filters){
 	let Data=[];
 	let Queried=[];
 	for(let i=0,o=Object.keys(this.Framework.Types),l=o.length;i<l;i++){
@@ -162,10 +157,8 @@ B.Resource.Open=function(Filters){
 		if(D)Data.push(...D);
 	}
 }
-B.Resource.Update=function(Element,Operation){
+B.Resource.prototype.Update=function(Element,Operation){
 	if(typeof Element!='object'||Element===null||typeof Operation!='boolean'&&(typeof Operation!='object'||Operation===null||this.Framework.Identifier in Operation||this.Framework.Meta.Keys.some(E=>E in Operation)))throw 'BADUPDATE';
-	let Meta=await this.Framework.Meta.Store.Read(this.Framework,this.Keys).catch(()=>{throw 'STOREFAILURE'});
-	if(!Meta)throw 'MISSING';
 	let Type=!Element[this.Framework.Identifier]?Type=this.Framework.Meta:this.Framework.Types[Element[this.Identifier]];
 	if(!Type||typeof Operation=='boolean'&&Type==this.Framework.Meta)throw 'BADUPDATE';
 		if(Operation===true){
@@ -180,9 +173,7 @@ B.Resource.Update=function(Element,Operation){
 		return await Type.Store.Update(this.Framework,Element,Operation).catch(()=>{throw 'STOREFAILURE'});
 	}
 }
-B.Resource.Delete=function(){
-	let Meta=await this.Framework.Meta.Store.Read(this.Framework,this.Keys).catch(()=>{throw 'STOREFAILURE'});
-	if(!Meta)throw 'MISSING';
+B.Resource.prototype.Delete=function(){
 	let Recipt=[];
 	let Queried=[];
 	for(let i=0,o=Object.keys(this.Framework.Types),l=o.length;i<l;i++){
@@ -194,4 +185,5 @@ B.Resource.Delete=function(){
 	await this.Framework.Meta.Store.Delete(this.Framework,this.Keys).then(R=>Recipt.push(R));
 	return Recipt;
 }
+//B.Documentation=function(File){}
 module.exports=B
