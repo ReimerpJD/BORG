@@ -41,91 +41,35 @@ B.prototype.Engine=function(Name,Function){
 	this.Test('FUNCTION',[Function]);
 	this.Engines[Name]=Function;
 }
-B.prototype.Search=function(Filters,Lang){
-	return await this.Meta.Store.Search(Filters,this).then(R=>{return R?R:this.Lang(Lang,'STOREFAILURE')});
+B.prototype.Search=function(Filters){
+	return await this.Meta.Store.Search(this,Filters).catch(()=>{throw 'STOREFAILURE'});
 }
-B.prototype.Create=function(Meta,Data,Lang){
-	let M=await this.Scrub(Meta);
-	if(!M)return this.Lang(Lang,'BADTYPE');
-	if(!Array.isArray(Data))return this.Lang(Lang,'BADDATA');
-	let D=[];
-	for(let i=0,l=Data.length;i<l;i++){
-		let d=await this.Scrub(Data[i],Meta);
-		if(!d)return this.Lang(Lang,'BADDATA');
-		d.push(d);
-	}
-	let Recipt=[];
-	let Keys=await this.Meta.Store.Create(Meta,this);
-	Recipt.push(Keys);
-	for(let i=0,l=D.length;i<l;i++){
-		this.Key(Keys,D[i]);
-		let keys=await this.Types[D[i][this.Identifier]].Store.Create(D[i],this);
-		Recipt.push(keys);
-	}
-	return Recipt;
+B.prototype.Create=function(Meta){
+	if(Meta[this.Identifier])throw 'BADTYPE';
+	await this.Scrub(Meta).catch(()=>throw 'BADTYPE');
+	let Keys=await this.Meta.Store.Create(this,Meta).catch(()=>{throw 'STOREFAILURE'});
+	if(!Keys)throw 'STOREFAILURE';
+	return new B.Resource(this,Keys);
 }
-B.prototype.Read=function(Keys,Engine,Lang){
-	if(typeof Keys!='object'||Keys===null||Object.keys(Keys).every(K=>this.Meta.Keys.includes(K))||this.Meta.Keys.every(K=>K in Keys))return this.Lang(Lang,'BADKEYS');
-	if(!(Engine in this.Engines))return this.Lang(Lang,'BADENGINE');
-	let Meta=await this.Meta.Store.Read(Keys,this);
-	if(!Meta)return this.Lang(Lang,'MISSING');
-	let Data=[];
-	let Queried=[];
-	for(let i=0,o=Object.keys(this.Types),l=o.length;i<l;i++){
-		if(Queried.includes(this.Types[o[i]].Store))continue;
-		else Queried.push(this.Types[o[i]].Store);
-		let D=await this.Types[o[i]].Store.Search(Keys,this);
-		if(D)Data.push(...D);
-	}
-	return await this.Engines[Engine](Meta,Data,this);
+B.prototype.Open=function(Keys){
+	this.Scrub(Keys).catch(()=>throw 'BADKEYS');
+	let Meta=await this.Meta.Store.Read(this,Keys).catch(()=>{throw 'STOREFAILURE'});
+	if(!Meta)throw 'MISSING';
+	return new B.Resource(this,Keys);
 }
-B.prototype.Update=function(Keys,Element,Operation,Lang){
-	if(typeof Keys!='object'||Keys===null||Object.keys(Keys).every(K=>this.Meta.Keys.includes(K))||this.Meta.Keys.every(K=>K in Keys))return this.Lang(Lang,'BADKEYS');
-	if(typeof Operation!='boolean'&&(typeof Operation!='object'||Operation===null))return this.Lang(Lang,'BADUPDATE');
-	let Meta=await this.Meta.Store.Read(Keys,this);
-	if(!Meta)return this.Lang(Lang,'MISSING');
-	let Type=!Element[this.Identifier]?Type=this.Meta:this.Types[Element[this.Identifier]];
-	if(!Type||typeof Operation=='boolean'&&Type==this.Meta)return this.Lang(Lang,'BADUPDATE');
-	if(Operation===true){
-		return await Type.Store.Create(Element,this).then(R=>{return R?R:this.Lang(Lang,'STOREFAILURE')});
-	}else if(Operation===false){
-		return await Type.Store.Delete(Element,this).then(R=>{return R?R:this.Lang(Lang,'STOREFAILURE')});
-	}else{
-		let o=Object.keys(Operation);
-		for(let i=0,l=o.length;i<l;i++)if(!(o[i] in Type.Options))return this.Lang(Lang,'BADUPDATE');
-		for(let i=0,l=o.length;i<l;i++)Operation[o[i]]=Type.Options(Operation[o[i]],Meta,this);
-		for(let i=0,l=o.length;i<l;i++)if(Operation[o[i]]===false)return this.Lang(Lang,'BADUPDATE');
-		return await Type.Store.Update(Element,Operation,this).then(R=>{return R?R:this.Lang(Lang,'STOREFAILURE')});
-	}
-}
-B.prototype.Delete=function(Keys,Lang){
-	if(typeof Keys!='object'||Keys===null||Object.keys(Keys).every(K=>this.Meta.Keys.includes(K))||this.Meta.Keys.every(K=>K in Keys))return this.Lang(Lang,'BADKEYS');
-	let Meta=await this.Meta.Store.Read(Keys,this);
-	if(!Meta)return this.Lang(Lang,'MISSING');
-	let Recipt=[];
-	let Queried=[];
-	for(let i=0,o=Object.keys(this.Types),l=o.length;i<l;i++){
-		if(Queried.includes(this.Types[o[i]].Store))continue;
-		else Queried.push(this.Types[o[i]].Store);
-		let D=await this.Types[o[i]].Store.Delete(Keys,this);
-		if(D)Data.push(...D);
-	}
-	await this.Meta.Store.Delete(Keys,this).then(R=>Recipt.push(R));
-	return Recipt;
-}
-B.prototype.Scrub=function(Options,Meta){
+B.prototype.Scrub=function(Options,Meta,Keys){
 	let Type;
 	if(!Options[this.Identifier])Type=this.Meta;
 	else if(this.Identifier in this.Types)Type=this.Types[Options[this.Identifier]];
-	else return false;
-	for(let i=0,l=Type.Keys.length;i<l;i++)if(!Type.Keys[i] in Options)return false;
-	for(let i=0,l=Type.Required.length;i<l;i++)if(!Type.Required[i] in Options)return false;
+	else throw false;
+	for(let i=0,l=Type.Keys.length;i<l;i++)if(!Type.Keys[i] in Options)throw false;
+	if(!Keys)for(let i=0,l=Type.Required.length;i<l;i++)if(!Type.Required[i] in Options)throw false;
 	let Shell={};
 	for(let i=0,o=Object.keys(Options),l=o.length;i<l;i++){
-		Shell[o[i]]=await Type.Options[O[i]](Options[O[i]],Meta,this);
-		if(!Shell[o[i]])return false;
+		Options[o[i]]=await Type.Options[o[i]].call(this,Options[o[i]],Shell);
+		if(!Shell[o[i]])throw false;
+		Shell[o[i]]=Options[o[i]];
 	}
-	return Shell;
 }
 B.prototype.Key=function(Meta,Type){for(let i=0,l=this.Meta.Keys.length;i<l;i++)Type[this.Meta.Keys[i]]=Meta[this.Meta.Keys[i]];}
 B.prototype.Map=function(Options){
@@ -153,6 +97,7 @@ B.prototypes.Testers={
 	API:function(Value){return(typeof Value=='object'&&typeof Value.Create=='function'&&typeof Value.Read=='function'&&typeof Value.Update=='function'&&typeof Value.Delete=='function')},
 	FUNCTION:function(Value){return typeof Value=='function'},
 	OPTIONS:function(Options,Required,Keys,Meta){
+		if(!Meta&&typeof this.Identifier!='string')return false;
 		if(typeof Options!='object'||Options==null||!Array.isArray(Required)||!Array.isArray(Keys))return false;
 		if(!Meta)for(let i=0,o=Object.keys(Options),l=o.length;i<l;i++)if(this.Meta.Keys.includes(Options[o[i]]))return false;
 		for(let i=0,o=Object.keys(Options),l=o.length;i<l;i++)if(!(Options[o[i]] in this.Inputs))return false;
@@ -184,4 +129,69 @@ B.prototype.Languages={
 	}
 }
 //B.Documentation=function(File){}
+B.Resource=function(Keys,Framework){
+	this.Framework=Framework;
+	this.Keys=Keys;
+}
+B.Resource.Meta=function(){
+	return await this.Framework.Meta.Store.Read(this.Framework,this.Keys).catch(()=>{throw 'STOREFAILURE'}).then(Meta=>{if(!Meta){throw 'MISSING'}else{return Meta}});
+}
+B.Resource.Render=function(Engine){
+	if(!Engine in this.Framework.Engines)throw 'BADENGINE';
+	let Meta=await this.Framework.Meta.Store.Read(this.Framework,this.Keys).catch(()=>{throw 'STOREFAILURE'});
+	if(!Meta)throw 'MISSING';
+	let Data=[];
+	let Queried=[];
+	for(let i=0,o=Object.keys(this.Framework.Types),l=o.length;i<l;i++){
+		if(Queried.includes(this.Framework.Types[o[i]].Store))continue;
+		else Queried.push(this.Framework.Types[o[i]].Store);
+		let D=await this.Framework.Types[o[i]].Store.Search(this.Framework,this.Keys).catch(()=>{throw 'STOREFAILURE'});
+		if(D)Data.push(...D);
+	}
+	return await this.Engines[Engine](this,Meta,Data);
+}
+B.Resource.Open=function(Filters){
+	let Meta=await this.Framework.Meta.Store.Read(this.Framework,this.Keys).catch(()=>{throw 'STOREFAILURE'});
+	if(!Meta)throw 'MISSING';
+	let Data=[];
+	let Queried=[];
+	for(let i=0,o=Object.keys(this.Framework.Types),l=o.length;i<l;i++){
+		if(Queried.includes(this.Framework.Types[o[i]].Store))continue;
+		else Queried.push(this.Framework.Types[o[i]].Store);
+		let D=await this.Framework.Types[o[i]].Store.Search(this.Framework,Filters).catch(()=>{throw 'STOREFAILURE'});
+		if(D)Data.push(...D);
+	}
+}
+B.Resource.Update=function(Element,Operation){
+	if(typeof Element!='object'||Element===null||typeof Operation!='boolean'&&(typeof Operation!='object'||Operation===null||this.Framework.Identifier in Operation||this.Framework.Meta.Keys.some(E=>E in Operation)))throw 'BADUPDATE';
+	let Meta=await this.Framework.Meta.Store.Read(this.Framework,this.Keys).catch(()=>{throw 'STOREFAILURE'});
+	if(!Meta)throw 'MISSING';
+	let Type=!Element[this.Framework.Identifier]?Type=this.Framework.Meta:this.Framework.Types[Element[this.Identifier]];
+	if(!Type||typeof Operation=='boolean'&&Type==this.Framework.Meta)throw 'BADUPDATE';
+		if(Operation===true){
+		return await Type.Store.Create(this.Framework,Element).catch(()=>{throw 'STOREFAILURE'});
+	}else if(Operation===false){
+		return await Type.Store.Delete(this.Framework,Element).catch(()=>{throw 'STOREFAILURE'});
+	}else{
+		let o=Object.keys(Operation);
+		for(let i=0,l=o.length;i<l;i++)if(!(o[i] in Type.Options)||Type.Keys.includes(o[i]))throw 'BADUPDATE';
+		for(let i=0,l=o.length;i<l;i++)Operation[o[i]]=Type.Options[o[i]].call(this.Framework,Operation[o[i]],Meta);
+		for(let i=0,l=o.length;i<l;i++)if(Operation[o[i]]===false)throw 'BADUPDATE';
+		return await Type.Store.Update(this.Framework,Element,Operation).catch(()=>{throw 'STOREFAILURE'});
+	}
+}
+B.Resource.Delete=function(){
+	let Meta=await this.Framework.Meta.Store.Read(this.Framework,this.Keys).catch(()=>{throw 'STOREFAILURE'});
+	if(!Meta)throw 'MISSING';
+	let Recipt=[];
+	let Queried=[];
+	for(let i=0,o=Object.keys(this.Framework.Types),l=o.length;i<l;i++){
+		if(Queried.includes(this.Framework.Types[o[i]].Store))continue;
+		else Queried.push(this.Framework.Types[o[i]].Store);
+		let D=await this.Framework.Types[o[i]].Store.Delete(this.Framework,this.Keys);
+		if(D)Data.push(...D);
+	}
+	await this.Framework.Meta.Store.Delete(this.Framework,this.Keys).then(R=>Recipt.push(R));
+	return Recipt;
+}
 module.exports=B

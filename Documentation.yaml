@@ -1,3 +1,38 @@
+Framework API:
+	Create: Meta
+	Open: Keys
+
+Resource API:
+	Render: Engine
+	Open: Filters #custom filters object passed to all Stores, meant to return partial Data if present
+	Update: Element, Updates
+	Delete: -
+	Meta: {reference to Meta object}
+	
+Store API:
+	Search: Framework, Filters # filters are custom
+	Create: Framework, Data # returns Keys of created object (for Meta and Data)
+	Read: Framework, Keys
+	Update: Framework, Element, Operation
+	Delete: Framework, Keys
+	
+Input Functions:
+	Parameters: Value, Shell #can use framework calls to validate against Resource body
+	Returns: Scrubbed value or false
+
+Engine Functions:
+	Parameters: Framework, Meta, Data
+	Returns: Rendered Resource
+
+
+
+
+
+
+
+
+
+
 Keys, Documentation Format: # {$}
 	Page Title: //#
 	Programming Documentation: //!
@@ -24,9 +59,18 @@ Store API:
 	Delete: Data, Framework # returns true/false
 
 Input Functions:
-	Parameters: Value, Framework, Meta
-	Returns: scrubbed value or false
+	Parameters: Value, Type, Meta, Framework
+	Returns: Scrubbed Value or false
 
 Engine Parameters: Meta, Data, Framework
+
+How Authentication Works:
+	Pre-Framework:
+		Build auth value
+		Set values to portions of document user is restricted from accessing directly (e.g. Owner/UserID, Date Created, ...)
+		
+	Input Validators:
+		Input functions can reference Auth, Meta, resource data, and the previously scrubbed values of the Type element it belongs to
+		Type Inputs are evaluated IN ORDER based on the Options object parameter defined for the Type
 
 # leave scope alone in ALL user-defined functions and objects (no bin() or call() in any)
