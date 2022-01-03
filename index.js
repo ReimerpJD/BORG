@@ -50,13 +50,59 @@ B.prototype.Create=function(Meta,Data){
 	let Keys=await this.Meta.Store.Create(this,Meta).catch(()=>{throw 'STOREFAILURE'});
 	if(!Keys)throw 'STOREFAILURE';
 	this.Key(Keys,Meta);
-	return new B.Resource(this,Meta);
+	return Meta;
 }
 B.prototype.Open=function(Keys){
 	this.Scrub(Keys).catch(()=>throw 'BADKEYS');
 	let Meta=await this.Meta.Store.Read(this,Keys).catch(()=>{throw 'STOREFAILURE'});
 	if(!Meta)throw 'MISSING';
-	return new B.Resource(this,Meta);
+	return Meta;
+}
+B.prototype.Render=function(Meta,Engine,Opened){
+	if(!Engine in this.Engines)throw 'BADENGINE';
+	if(!Opened)Meta=await this.Meta.Store.Read(this,Meta).catch(()=>{throw 'STOREFAILURE'});
+	if(!Meta)throw 'MISSING';
+	let Keys=this.Key(Meta,{});
+	let Data=[];
+	let Queried=[];
+	for(let i=0,o=Object.keys(this.Types),l=o.length;i<l;i++){
+		if(Queried.includes(this.Types[o[i]].Store))continue;
+		else Queried.push(this.Types[o[i]].Store);
+		let D=await this.Types[o[i]].Store.Search(this,Keys).catch(()=>{throw 'STOREFAILURE'});
+		if(D)Data.push(...D);
+	}
+	return await this.Engines[Engine](this,this.Meta,Data);
+}
+B.prototype.Update=function(Keys,Operation,Meta){
+	if(!Meta)Meta=await this.Meta.Store.Read(this,Meta).catch(()=>{throw 'STOREFAILURE'});
+	if(!Meta)throw 'MISSING';
+	if(typeof Keys!='object'||Keys===null||typeof Operation!='boolean'&&(typeof Operation!='object'||Operation===null||this.Identifier in Operation||this.Meta.Keys.some(E=>E in Operation)))throw 'BADUPDATE';
+	let Type=!Keys[this.Identifier]?Type=this.Meta:this.Types[Keys[this.Identifier]];
+	if(!Type||typeof Operation=='boolean'&&Type==this.Meta)throw 'BADUPDATE';
+		if(Operation===true){
+		return await Type.Store.Create(this,Keys).catch(()=>{throw 'STOREFAILURE'});
+	}else if(Operation===false){
+		return await Type.Store.Delete(this,Keys).catch(()=>{throw 'STOREFAILURE'});
+	}else{
+		let o=Object.keys(Operation);
+		for(let i=0,l=o.length;i<l;i++)if(!(o[i] in Type.Options)||Type.Keys.includes(o[i]))throw 'BADUPDATE';
+		let Shell={};
+		for(let i=0,l=o.length;i<l;i++)Shell[o[i]]=Type.Options[o[i]].call(this,Operation[o[i]],Meta);
+		for(let i=0,l=o.length;i<l;i++)if(Shell[o[i]]===false)throw 'BADUPDATE';
+		return await Type.Store.Update(this,Keys,Shell).catch(()=>{throw 'STOREFAILURE'});
+	}
+}
+B.prototype.Delete=function(Keys,Opened){
+	let Recipt=[];
+	let Queried=[];
+	for(let i=0,o=Object.keys(this.Types),l=o.length;i<l;i++){
+		if(Queried.includes(this.Types[o[i]].Store))continue;
+		else Queried.push(this.Types[o[i]].Store);
+		let D=await this.Types[o[i]].Store.Delete(this,Keys);
+		if(D)Data.push(...D);
+	}
+	await this.Meta.Store.Delete(this,Keys).then(R=>Recipt.push(R));
+	return Recipt;
 }
 B.prototype.Scrub=function(Options,Meta,Keys){
 	let Type;
@@ -128,62 +174,6 @@ B.prototype.Languages={
 		BADUPDATE:'The inputs provided were not sufficient to perform an update',
 		STOREFAILURE:'There was a data storage failure that interrupted the operation attempted',
 	}
-}
-B.Resource=function(Framework,Meta){
-	this.Opened=Date.now();
-	this.Framework=Framework;
-	this.Meta=Meta;
-	this.Keys=this.Framework.Key(this.Meta,{});
-}
-B.Resource.prototype.Render=function(Engine){
-	if(!Engine in this.Framework.Engines)throw 'BADENGINE';
-	let Data=[];
-	let Queried=[];
-	for(let i=0,o=Object.keys(this.Framework.Types),l=o.length;i<l;i++){
-		if(Queried.includes(this.Framework.Types[o[i]].Store))continue;
-		else Queried.push(this.Framework.Types[o[i]].Store);
-		let D=await this.Framework.Types[o[i]].Store.Search(this.Framework,this.Keys).catch(()=>{throw 'STOREFAILURE'});
-		if(D)Data.push(...D);
-	}
-	return await this.Engines[Engine](this,this.Meta,Data);
-}
-B.Resource.prototype.Open=function(Filters){
-	let Data=[];
-	let Queried=[];
-	for(let i=0,o=Object.keys(this.Framework.Types),l=o.length;i<l;i++){
-		if(Queried.includes(this.Framework.Types[o[i]].Store))continue;
-		else Queried.push(this.Framework.Types[o[i]].Store);
-		let D=await this.Framework.Types[o[i]].Store.Search(this.Framework,Filters).catch(()=>{throw 'STOREFAILURE'});
-		if(D)Data.push(...D);
-	}
-}
-B.Resource.prototype.Update=function(Element,Operation){
-	if(typeof Element!='object'||Element===null||typeof Operation!='boolean'&&(typeof Operation!='object'||Operation===null||this.Framework.Identifier in Operation||this.Framework.Meta.Keys.some(E=>E in Operation)))throw 'BADUPDATE';
-	let Type=!Element[this.Framework.Identifier]?Type=this.Framework.Meta:this.Framework.Types[Element[this.Identifier]];
-	if(!Type||typeof Operation=='boolean'&&Type==this.Framework.Meta)throw 'BADUPDATE';
-		if(Operation===true){
-		return await Type.Store.Create(this.Framework,Element).catch(()=>{throw 'STOREFAILURE'});
-	}else if(Operation===false){
-		return await Type.Store.Delete(this.Framework,Element).catch(()=>{throw 'STOREFAILURE'});
-	}else{
-		let o=Object.keys(Operation);
-		for(let i=0,l=o.length;i<l;i++)if(!(o[i] in Type.Options)||Type.Keys.includes(o[i]))throw 'BADUPDATE';
-		for(let i=0,l=o.length;i<l;i++)Operation[o[i]]=Type.Options[o[i]].call(this.Framework,Operation[o[i]],Meta);
-		for(let i=0,l=o.length;i<l;i++)if(Operation[o[i]]===false)throw 'BADUPDATE';
-		return await Type.Store.Update(this.Framework,Element,Operation).catch(()=>{throw 'STOREFAILURE'});
-	}
-}
-B.Resource.prototype.Delete=function(){
-	let Recipt=[];
-	let Queried=[];
-	for(let i=0,o=Object.keys(this.Framework.Types),l=o.length;i<l;i++){
-		if(Queried.includes(this.Framework.Types[o[i]].Store))continue;
-		else Queried.push(this.Framework.Types[o[i]].Store);
-		let D=await this.Framework.Types[o[i]].Store.Delete(this.Framework,this.Keys);
-		if(D)Data.push(...D);
-	}
-	await this.Framework.Meta.Store.Delete(this.Framework,this.Keys).then(R=>Recipt.push(R));
-	return Recipt;
 }
 //B.Documentation=function(File){}
 module.exports=B
