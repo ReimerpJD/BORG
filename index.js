@@ -50,19 +50,13 @@ B.prototype.Create=function(Meta,Data){
 	let Keys=await this.Meta.Store.Create(this,Meta).catch(()=>{throw 'STOREFAILURE'});
 	if(!Keys)throw 'STOREFAILURE';
 	this.Key(Keys,Meta);
-	return Meta;
+	return Keys;
 }
-B.prototype.Open=function(Keys){
-	this.Scrub(Keys).catch(()=>throw 'BADKEYS');
-	let Meta=await this.Meta.Store.Read(this,Keys).catch(()=>{throw 'STOREFAILURE'});
+B.prototype.Read=function(Keys,Auth){
+	if(Auth&&typeof Auth!='function')throw 'BADAUTH';
+	let Meta=await this.Meta.Store.Read(this,Meta).catch(()=>{throw 'STOREFAILURE'});
 	if(!Meta)throw 'MISSING';
-	return Meta;
-}
-B.prototype.Render=function(Meta,Engine,Opened){
-	if(!Engine in this.Engines)throw 'BADENGINE';
-	if(!Opened)Meta=await this.Meta.Store.Read(this,Meta).catch(()=>{throw 'STOREFAILURE'});
-	if(!Meta)throw 'MISSING';
-	let Keys=this.Key(Meta,{});
+	if(!Auth(Meta))throw 'NOTAUTHORIZED';
 	let Data=[];
 	let Queried=[];
 	for(let i=0,o=Object.keys(this.Types),l=o.length;i<l;i++){
@@ -71,28 +65,35 @@ B.prototype.Render=function(Meta,Engine,Opened){
 		let D=await this.Types[o[i]].Store.Search(this,Keys).catch(()=>{throw 'STOREFAILURE'});
 		if(D)Data.push(...D);
 	}
-	return await this.Engines[Engine](this,this.Meta,Data);
+	return await this.Engines[Engine](this,Meta,Data);
 }
-B.prototype.Update=function(Keys,Operation,Meta){
-	if(!Meta)Meta=await this.Meta.Store.Read(this,Meta).catch(()=>{throw 'STOREFAILURE'});
+B.prototype.Update=function(Element,Operation,Auth){
+	if(Auth&&typeof Auth!='function')throw 'BADAUTH';
+	if(typeof Operation!='boolean'&&(typeof Operation!='object'||Operation===null||this.Identifier in Operation||this.Meta.Keys.some(E=>E in Operation)))throw 'BADUPDATE';
+	let Keys=this.Key(Element,{});
+	let Meta=await this.Meta.Store.Read(this,Keys).catch(()=>{throw 'STOREFAILURE'});
 	if(!Meta)throw 'MISSING';
-	if(typeof Keys!='object'||Keys===null||typeof Operation!='boolean'&&(typeof Operation!='object'||Operation===null||this.Identifier in Operation||this.Meta.Keys.some(E=>E in Operation)))throw 'BADUPDATE';
-	let Type=!Keys[this.Identifier]?Type=this.Meta:this.Types[Keys[this.Identifier]];
+	if(!Auth(Meta))throw 'NOTAUTHORIZED';
+	let Type=!Element[this.Identifier]?Type=this.Meta:this.Types[Element[this.Identifier]];
 	if(!Type||typeof Operation=='boolean'&&Type==this.Meta)throw 'BADUPDATE';
 		if(Operation===true){
-		return await Type.Store.Create(this,Keys).catch(()=>{throw 'STOREFAILURE'});
+		return await Type.Store.Create(this,Element).catch(()=>{throw 'STOREFAILURE'});
 	}else if(Operation===false){
-		return await Type.Store.Delete(this,Keys).catch(()=>{throw 'STOREFAILURE'});
+		return await Type.Store.Delete(this,Element).catch(()=>{throw 'STOREFAILURE'});
 	}else{
 		let o=Object.keys(Operation);
 		for(let i=0,l=o.length;i<l;i++)if(!(o[i] in Type.Options)||Type.Keys.includes(o[i]))throw 'BADUPDATE';
 		let Shell={};
 		for(let i=0,l=o.length;i<l;i++)Shell[o[i]]=Type.Options[o[i]].call(this,Operation[o[i]],Meta);
 		for(let i=0,l=o.length;i<l;i++)if(Shell[o[i]]===false)throw 'BADUPDATE';
-		return await Type.Store.Update(this,Keys,Shell).catch(()=>{throw 'STOREFAILURE'});
+		return await Type.Store.Update(this,Element,Shell).catch(()=>{throw 'STOREFAILURE'});
 	}
 }
-B.prototype.Delete=function(Keys,Opened){
+B.prototype.Delete=function(Keys,Auth){
+	if(Auth&&typeof Auth!='function')throw 'BADAUTH';
+	let Meta=await this.Meta.Store.Read(this,Keys).catch(()=>{throw 'STOREFAILURE'});
+	if(!Meta)throw 'MISSING';
+	if(!Auth(Meta))throw 'NOTAUTHORIZED';
 	let Recipt=[];
 	let Queried=[];
 	for(let i=0,o=Object.keys(this.Types),l=o.length;i<l;i++){
@@ -173,6 +174,8 @@ B.prototype.Languages={
 		MISSING:'The resource you requested was not found',
 		BADUPDATE:'The inputs provided were not sufficient to perform an update',
 		STOREFAILURE:'There was a data storage failure that interrupted the operation attempted',
+		NOTAUTHORIZED:'You are not authorized to perform the requested operation',
+		BADAUTH:'A server authorization error occurred',
 	}
 }
 //B.Documentation=function(File){}
