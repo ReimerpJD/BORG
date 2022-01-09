@@ -105,7 +105,7 @@ B.prototype.Open=async function(Keys,Auth){
 B.prototype.Run=async function(Keys,Action,Parameters,Auth){
 	if(!(Action in this.Engines))throw 'MISSINGPROCESS';
 	let Resource=await this.Open(Keys,Auth);
-	return await this.Engines[Action](Resource,...Parameters);
+	return await this.Engines[Action](this,Resource,...Parameters);
 }
 B.prototype.Resource=function(Parent,Meta){
 	this.Parent=Parent;

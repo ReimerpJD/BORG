@@ -19,7 +19,7 @@ Input Functions:
 	# async functions
 
 Engine Functions:
-	Parameters: Resource, ...Custom Parameters
+	Parameters: Framework, Resource, ...Custom Parameters
 	Returns: Rendered Resource
 	# async functions
 
