@@ -1,5 +1,5 @@
 Framework API:
-	Search: Filters, Auth
+	Search: Filters, Keys, Auth
 	Create: Meta, Data, Auth
 	Read: Keys, Engine, Auth
 	Update: Element, Operation, Auth
@@ -7,10 +7,10 @@ Framework API:
 	# async functions
 
 Store API:
-	Search: Filters, Framework (Filters are custom)
+	Search: Filters, Keys, Framework (Filters are custom)
 	Create: Data, Framework => Created Keys
 	Read: Keys, Framework
-	Update: Element, Updates, Framework
+	Update: Keys, Updates, Framework
 	Delete: Keys, Framework
 
 Input Functions:
@@ -19,7 +19,7 @@ Input Functions:
 	# async functions
 
 Engine Functions:
-	Parameters: Framework, Meta, Data
+	Parameters: Resource, ...Custom Parameters
 	Returns: Rendered Resource
 	# async functions
 
