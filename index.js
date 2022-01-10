@@ -41,23 +41,29 @@ B.prototype.Engine=function(Name,Function){
 	this.Test('FUNCTION',[Function]);
 	this.Engines[Name]=Function;
 }
-B.prototype.Search=async function(Filters,Keys){
-	let Type=(typeof Keys=='object'&&Keys!==null)?Keys[this.Identifier]?this.Types[Keys[this.Identifier]]:this.Meta:false;
-	if(!Type)throw 'BADKEYS';
-	return await Type.Store.Search(Filters,Keys,this).catch(()=>{throw 'STOREFAILURE'});
+B.prototype.Search=async function(Store,Filters){
+	if(!(Store in this.Stores))throw 'BADSTORE';
+	return await this.Stores[Store].Search(Filters,this).catch(()=>{throw 'STOREFAILURE'});
 }
 B.prototype.Create=async function(Element,Auth){
-	let Type=this.Scrub(Element);
+	let Type=await this.Scrub(Element);
 	if(!Element||!Type)throw 'BADTYPE';
-	if(typeof Auth=='function'&&!Auth(Element))throw 'NOTAUTHORIZED';
+	if(typeof Auth=='function'){
+		let Keys={};
+		this.Key(Element,Keys);
+		let Meta=await this.Meta.Store.Read(Keys,this).catch(()=>{throw 'STOREFAILURE'});
+		if(!Meta)throw 'MISSING';
+		if(!Auth(Meta))throw 'NOTAUTHORIZED';
+	}
 	return await Type.Store.Create(Element,this).catch(()=>{throw 'STOREFAILURE'});
 }
-B.prototype.Read=async function(Keys,Updates,Auth){
+B.prototype.Read=async function(Keys,Auth){
 	let Type=(typeof Keys=='object'&&Keys!==null)?Keys[this.Identifier]?this.Types[Keys[this.Identifier]]:this.Meta:false;
 	if(!Type)throw 'BADKEYS';
 	if(typeof Auth=='function'){
-		let Keys=this.Key(Keys,{});
-		let Meta=await this.Meta.Store.Read(Keys,this).catch(()=>{throw 'STOREFAILURE'});
+		let K={};
+		this.Key(Keys,K);
+		let Meta=await this.Meta.Store.Read(K,this).catch(()=>{throw 'STOREFAILURE'});
 		if(!Meta)throw 'MISSING';
 		if(!Auth(Meta))throw 'NOTAUTHORIZED';
 		if(Type==this.Meta)return Meta;
@@ -67,12 +73,12 @@ B.prototype.Read=async function(Keys,Updates,Auth){
 B.prototype.Update=async function(Keys,Updates,Auth){
 	let Type=(typeof Keys=='object'&&Keys!==null)?Keys[this.Identifier]?this.Types[Keys[this.Identifier]]:this.Meta:false;
 	if(!Type)throw 'BADKEYS';
-	if(typeof Auth=='function'){
-		let Keys=this.Key(Keys,{});
-		let Meta=await this.Meta.Store.Read(Keys,this).catch(()=>{throw 'STOREFAILURE'});
-		if(!Meta)throw 'MISSING';
-		if(!Auth(Meta))throw 'NOTAUTHORIZED';
-	}
+	let K={};
+	this.Key(Keys,K);
+	Keys=K;
+	let Meta=await this.Meta.Store.Read(Keys,this).catch(()=>{throw 'STOREFAILURE'});
+	if(!Meta)throw 'MISSING';
+	if(typeof Auth=='function'&&!Auth(Meta))throw 'NOTAUTHORIZED';
 	let Shell={};
 	let o=Object.keys(Updates);
 	for(let i=0,l=o.length;i<l;i++){
@@ -86,7 +92,9 @@ B.prototype.Delete=async function(Keys,Auth){
 	let Type=(typeof Keys=='object'&&Keys!==null)?Keys[this.Identifier]?this.Types[Keys[this.Identifier]]:this.Meta:false;
 	if(!Type)throw 'BADKEYS';
 	if(typeof Auth=='function'){
-		let Keys=this.Key(Keys,{});
+		let K={};
+		this.Key(Keys,K);
+		Keys=K;
 		let Meta=await this.Meta.Store.Read(Keys,this).catch(()=>{throw 'STOREFAILURE'});
 		if(!Meta)throw 'MISSING';
 		if(!Auth(Meta))throw 'NOTAUTHORIZED';
@@ -95,40 +103,41 @@ B.prototype.Delete=async function(Keys,Auth){
 }
 //B.prototype.Rekey=function(Keys,Updates){}?
 B.prototype.Open=async function(Keys,Auth){
-	let Type=(typeof Keys!='object'||Keys!==null||Keys[this.Identifier])?false:this.Meta;
-	if(!Type)throw 'BADKEYS';
+	if(typeof Keys!='object'||Keys===null)throw 'BADKEYS';
 	let Meta=await this.Meta.Store.Read(Keys,this).catch(()=>{throw 'STOREFAILURE'});
-		if(!Meta)throw 'MISSING';
+	if(!Meta)throw 'MISSING';
 	if(typeof Auth=='function'&&!Auth(Meta))throw 'NOTAUTHORIZED';
 	return new this.Resource(this,Meta);
 }
-B.prototype.Run=async function(Keys,Action,Parameters,Auth){
-	if(!(Action in this.Engines))throw 'MISSINGPROCESS';
-	let Resource=await this.Open(Keys,Auth);
-	return await this.Engines[Action](this,Resource,...Parameters);
+B.prototype.Run=async function(Engine){
+	if(!(Engine in this.Engines))throw 'MISSINGPROCESS';
+	let Parameters=[];
+	for(let i=1,l=arguments.length;i<l;i++)Parameters.push(arguments[i]);
+	return await this.Engines[Engine](this,...Parameters);
 }
 B.prototype.Resource=function(Parent,Meta){
 	this.Parent=Parent;
 	this.Meta=Meta;
-	this.Keys=Parent.Key(Meta,{});
+	this.Keys={};
+	Parent.Key(Meta,this.Keys);
 }
-B.prototype.Resource.prototype.Search=function(Filters,Keys={}){
+B.prototype.Resource.prototype.Search=async function(Filters,Keys={}){
 	this.Parent.Key(this.Keys,Keys);
 	return await this.Parent.Search(Filters,Keys);
 }
-B.prototype.Resource.prototype.Create=function(Element){
+B.prototype.Resource.prototype.Create=async function(Element){
 	this.Parent.Key(this.Keys,Element);
 	return await this.Parent.Create(Element);
 }
-B.prototype.Resource.prototype.Read=function(Keys){
+B.prototype.Resource.prototype.Read=async function(Keys){
 	this.Parent.Key(this.Keys,Keys);
 	return await this.Parent.Read(Keys);
 }
-B.prototype.Resource.prototype.Update=function(Keys,Updates){
+B.prototype.Resource.prototype.Update=async function(Keys,Updates){
 	this.Parent.Key(this.Keys,Keys);
 	return await this.Parent.Update(Keys,Updates);
 }
-B.prototype.Resource.prototype.Delete=function(Keys){
+B.prototype.Resource.prototype.Delete=async function(Keys){
 	this.Parent.Key(this.Keys,Keys);
 	return await this.Parent.Delete(Keys);
 }
@@ -140,6 +149,7 @@ B.prototype.Scrub=async function(Options,Meta,Keys){
 	else throw 'BADTYPE';
 	let Shell={};
 	for(let i=0,o=Object.keys(Options),l=o.length;i<l;i++){
+		if(o[i]==this.Identifier||this.Meta.Keys.includes(o[i]))continue;
 		Options[o[i]]=await Type.Options[o[i]](Options[o[i]],Shell,Meta,this);
 		if(!Options[o[i]])throw 'BADTYPE';
 		Shell[o[i]]=Options[o[i]];
@@ -203,6 +213,7 @@ B.prototype.Languages={
 		STOREFAILURE:'There was a data storage failure that interrupted the operation attempted',
 		NOTAUTHORIZED:'You are not authorized to perform the requested operation',
 		BADAUTH:'A server authorization error occurred',
+		BADSTORE:'The Store parameter did not match a registered Store',
 	}
 }
 //B.Documentation=function(File){}
