@@ -41,9 +41,10 @@ B.prototype.Engine=function(Name,Function){
 	this.Test('FUNCTION',[Function]);
 	this.Engines[Name]=Function;
 }
-B.prototype.Search=async function(Store,Filters){
-	if(!(Store in this.Stores))throw 'BADSTORE';
-	return await this.Stores[Store].Search(Filters,this).catch(()=>{throw 'STOREFAILURE'});
+B.prototype.Search=async function(Filters,Store){
+	if(!Store)return await this.Meta.Store.Search(Filters,this).catch(()=>{throw 'STOREFAILURE'});
+	else if(Store in this.Stores)return await this.Stores[Store].Search(Filters,this).catch(()=>{throw 'STOREFAILURE'});
+	else throw 'BADSTORE';
 }
 B.prototype.Create=async function(Element,Auth){
 	let Type=await this.Scrub(Element);
@@ -121,9 +122,9 @@ B.prototype.Resource=function(Parent,Meta){
 	this.Keys={};
 	Parent.Key(Meta,this.Keys);
 }
-B.prototype.Resource.prototype.Search=async function(Filters,Keys={}){
-	this.Parent.Key(this.Keys,Keys);
-	return await this.Parent.Search(Filters,Keys);
+B.prototype.Resource.prototype.Search=async function(Filters,Store){
+	this.Parent.Key(this.Keys,Filters);
+	return await this.Parent.Search(Filters,Store);
 }
 B.prototype.Resource.prototype.Create=async function(Element){
 	this.Parent.Key(this.Keys,Element);
