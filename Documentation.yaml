@@ -15,11 +15,12 @@ Store API:
 
 Input Functions:
 	Parameters: Value, Shell, Meta, Framework
-	Returns: Scrubbed value or false
+	Returns: Scrubbed value
+	Error: throw false if the Value is invalid
 	# async functions
 
 Engine Functions:
-	Parameters: Framework, Resource, ...Custom Parameters
+	Parameters: Framework, ...Custom Parameters
 	Returns: Rendered Resource
 	# async functions
 
