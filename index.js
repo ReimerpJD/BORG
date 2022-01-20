@@ -1,17 +1,59 @@
+async function Search(Framework,Filters,Store,Auth){
+	let SelectedStore=!Store?Framework.Meta.Store:Store in Framework.Stores?Framework.Stores[Store]:false;
+	if(!Store)throw new Framework.OPERR('BAD_STORE');
+	return await SelectedStore.Search(Filters).then(async A=>{
+		if(Array.isArray(A)&&typeof Auth=='function'){
+			let Results=[];
+			for(let i=0,l=A.length;i<l;i++){
+				let P=await Auth(A[i]);
+				if(P)Results.push(A[i]);
+			}
+			A=Results;
+		}
+		return A;
+	});
+}
+async function Create(Framework,Element,Auth){
+	let Type=Framework.Identify(Element);
+	let Meta=await Type==Framework.Meta?Element:Framework.Meta.Store.Read(Framework.Key(Element),Framework);
+	if(typeof Auth=='function')await Auth(Meta).then(A=>{if(!A){throw new Framework.OPERR('AUTHORIZATION_FAILED')}});
+	await Framework.Scrub(Type,Element,Meta);
+	return await Type.Store.Create(Element,Framework);
+}
+async function Read(Framework,Keys,Auth){
+	let Type=Framework.Identify(Keys);
+	let Meta=await Framework.Meta.Store.Read(Framework.Key(Keys),Framework);
+	if(typeof Auth=='function')await Auth(Meta).then(A=>{if(!A){throw new Framework.OPERR('AUTHORIZATION_FAILED')}});
+	return await Type==Framework.Meta?Meta:Type.Store.Read(Keys,Framework);
+}
+async function Update(Framework,Keys,Updates,Auth){
+	let Type=Framework.Identify(Keys);
+	let Meta=await Framework.Meta.Store.Read(Framework.Key(Keys),Framework);
+	if(typeof Auth=='function')await Auth(Meta).then(A=>{if(!A){throw new Framework.OPERR('AUTHORIZATION_FAILED')}});
+	await Framework.Scrub(Type,Updates,Meta,true);
+	return await Type.Store.Update(Keys,Updates,Framework);
+}
+async function Delete(Framework,Keys,Auth){
+	let Type=Framework.Identify(Keys);
+	let Meta=await Framework.Meta.Store.Read(Framework.Key(Keys),Framework);
+	if(typeof Auth=='function')await Auth(Meta).then(A=>{if(!A){throw new Framework.OPERR('AUTHORIZATION_FAILED')}});
+	return await Type.Store.Delete(Keys,Framework);
+}
 function B(){
 	this.Stores={};
 	this.Inputs={};
 	this.Types={};
-	this.Engines={};
+	this.Engines={
+		Search:Search,
+		Create:Create,
+		Read:Read,
+		Update:Update,
+		Delete:Delete
+	};
 }
 B.prototype.Console=function(Console){
 	this.Test('CONSOLE',[Console]);
 	this.Log=Console;
-}
-B.prototype.Language=function(Code,Language){
-	this.Test('NAME',[Code]);
-	this.Test('LANGUAGE',[Language]);
-	this.Languages[Code]=Language;
 }
 B.prototype.Store=function(Name,API){
 	this.Test('NAME',[Name]);
@@ -41,49 +83,36 @@ B.prototype.Engine=function(Name,Function){
 	this.Test('FUNCTION',[Function]);
 	this.Engines[Name]=Function;
 }
-B.prototype.Search=async function(Filters,Store){
-	if(!Store)return await this.Meta.Store.Search(Filters,this);
-	else if(Store in this.Stores)return await this.Stores[Store].Search(Filters,this);
-	else throw 'BADSTORE';
-}
-B.prototype.Create=async function(Element,Auth){
-	let Type=this.Identify(Element);
-	let Meta=await Type==this.Meta?Element:this.Meta.Store.Read(this.Key(Element),this);
-	if(typeof Auth=='function')await Auth(Meta).then(A=>{if(!A){throw 'NOTAUTHORIZED'}});
-	await this.Scrub(Type,Element,Meta);
-	return await Type.Store.Create(Element,this);
-}
-B.prototype.Read=async function(Keys,Auth){
-	let Type=this.Identify(Keys);
-	let Meta=await this.Meta.Store.Read(this.Key(Keys),this);
-	if(typeof Auth=='function')await Auth(Meta).then(A=>{if(!A){throw 'NOTAUTHORIZED'}});
-	return await Type==this.Meta?Meta:Type.Store.Read(Keys,this);
-}
-B.prototype.Update=async function(Keys,Updates,Auth){
-	let Type=this.Identify(Keys);
-	let Meta=await this.Meta.Store.Read(this.Key(Keys),this);
-	if(typeof Auth=='function')await Auth(Meta).then(A=>{if(!A){throw 'NOTAUTHORIZED'}});
-	await this.Scrub(Type,Updates,Meta,true);
-	return await Type.Store.Update(Keys,Updates,this);
-}
-B.prototype.Delete=async function(Keys,Auth){
-	let Type=this.Identify(Keys);
-	let Meta=await this.Meta.Store.Read(this.Key(Keys),this);
-	if(typeof Auth=='function')await Auth(Meta).then(A=>{if(!A){throw 'NOTAUTHORIZED'}});
-	return await Type.Store.Delete(Keys,this);
-}
-B.prototype.Open=async function(Keys,Auth){
-	let Type=this.Identify(Keys);
-	let Meta=await this.Meta.Store.Read(this.Key(Keys),this);
-	if(!Meta)throw 'MISSING';
-	if(typeof Auth=='function')await Auth(Meta).then(A=>{if(!A){throw 'NOTAUTHORIZED'}});
-	return new this.Resource(this,Meta);
-}
-B.prototype.Run=async function(Engine){
-	if(!(Engine in this.Engines))throw 'MISSINGENGINE';
+B.prototype.API=async function(Engine){
+	if(!(Engine in this.Engines))return new this.Response(typeof Engine=='string'?Engine:'‽',Time-Date.now(),'BAD_API_CALL',false);
+	let Time=Date.now();
+	let Status='OK';
 	let Parameters=[];
 	for(let i=1,l=arguments.length;i<l;i++)Parameters.push(arguments[i]);
-	return await this.Engines[Engine](this,...Parameters);
+	let Response=await this.Engines[Engine](this,...Parameters).catch(E=>{
+		Status=E instanceof this.OPERR&&E.message=='AUTHORIZATION_FAILED'?'AUTHORIZATION_FAILED':'ERROR';
+		return false;
+	});
+	return new this.Response(Engine,Time-Date.now(),Status,Response);
+}
+B.prototype.Response=function(Query,Time,Status,Response){
+	this.Query=Query;
+	this.Time=Time;
+	this.Status=Status;
+	this.Response=Response;
+	if(this.Status=='ERROR')this.Trace=Error.captureStackTrace(this,Response);
+}
+B.prototype.OPERR=function(Code){
+	let Shell={};
+	Shell.name=Code;
+	Shell.message=(Code in this.Log)?this.Log[Code]:'‽';
+	Error.captureStackTrace(Shell,Error);
+	return Shell;
+}
+B.prototype.Open=async function(Keys,Auth){
+	let Meta=await this.Meta.Store.Read(this.Key(Keys),this);
+	if(typeof Auth=='function')await Auth(Meta).then(A=>{if(!A){throw new this.OPERR('AUTHORIZATION_FAILED')}});
+	return new this.Resource(this,Meta);
 }
 B.prototype.Resource=function(Parent,Meta){
 	this.Parent=Parent;
@@ -111,37 +140,37 @@ B.prototype.Resource.prototype.Delete=async function(Keys){
 	return await this.Parent.Delete(Keys);
 }
 B.prototype.Identify=function(Element){
-	if(typeof Element!='object'||Element===null)throw 'BADTYPE1';
+	if(typeof Element!='object'||Element===null)throw new this.OPERR('BAD_TYPE');
 	let Type;
 	if(!(this.Identifier in Element))Type=this.Meta;
 	else if(Element[this.Identifier] in this.Types)Type=this.Types[Element[this.Identifier]];
-	else throw 'BADTYPE2';
-	for(let i=0,l=this.Meta.Keys.length;i<l;i++)if(!this.Meta.Keys[i] in Element)throw 'BADTYPE3';
-	if(Type!=this.Meta)for(let i=0,l=Type.Keys.length;i<l;i++)if(!Type.Keys[i] in Element)throw 'BADTYPE4';
+	else throw new this.OPERR('BAD_TYPE');
+	for(let i=0,l=this.Meta.Keys.length;i<l;i++)if(!this.Meta.Keys[i] in Element)throw new this.OPERR('BAD_TYPE');
+	if(Type!=this.Meta)for(let i=0,l=Type.Keys.length;i<l;i++)if(!Type.Keys[i] in Element)throw new this.OPERR('BAD_TYPE');
 	return Type;
 }
 B.prototype.Scrub=async function(Type,Options,Meta,Partial){
 	let Shell={};
 	if(!Partial){
-		for(let i=0,l=this.Meta.Keys.length;i<l;i++)if(!this.Meta.Keys[i] in Options)throw 'BADTYPE5';
-		if(Type!=this.Meta)for(let i=0,l=Type.Keys.length;i<l;i++)if(!Type.Keys[i] in Options)throw 'BADTYPE6';
-		for(let i=0,l=Type.Required.length;i<l;i++)if(!Type.Required[i] in Options)throw 'BADTYPE7';
+		for(let i=0,l=this.Meta.Keys.length;i<l;i++)if(!this.Meta.Keys[i] in Options)throw new this.OPERR('BAD_TYPE');
+		if(Type!=this.Meta)for(let i=0,l=Type.Keys.length;i<l;i++)if(!Type.Keys[i] in Options)throw new this.OPERR('BAD_TYPE');
+		for(let i=0,l=Type.Required.length;i<l;i++)if(!Type.Required[i] in Options)throw new this.OPERR('BAD_TYPE');
 	}
 	for(let i=0,o=Object.keys(Options),l=o.length;i<l;i++){
 		if(o[i]==this.Identifier||this.Meta.Keys.includes(o[i]))continue;
-		Options[o[i]]=await Type.Options[o[i]](Options[o[i]],Shell,Meta,this);
+		Options[o[i]]=await Type.Options[o[i]](Options[o[i]],Shell,Meta,this).catch(E=>throw new this.OPERR('BAD_OPTION'));
 		Shell[o[i]]=Options[o[i]];
 	}
 }
 B.prototype.Key=function(Source,Target){
 	if(typeof Target=='object'&&Target!==null)for(let i=0,l=this.Meta.Keys.length;i<l;i++){
-		if(Source[this.Meta.Keys[i]]===undefined)throw 'BADTYPE8';
+		if(Source[this.Meta.Keys[i]]===undefined)throw new this.OPERR('BAD_TYPE');
 		Target[this.Meta.Keys[i]]=Source[this.Meta.Keys[i]];
 		return;
 	}
 	let Shell={};
 	for(let i=0,l=this.Meta.Keys.length;i<l;i++){
-		if(Source[this.Meta.Keys[i]]===undefined)throw new Error('BADTYPE9');
+		if(Source[this.Meta.Keys[i]]===undefined)throw new this.OPERR('BAD_TYPE');
 		Shell[this.Meta.Keys[i]]=Source[this.Meta.Keys[i]];
 	}
 	return Shell;
@@ -152,18 +181,12 @@ B.prototype.Map=function(Options){
 	return Shell;
 }
 B.prototype.Test=function(Test,Inputs){
-	if(!this.Testers[Test].apply(this,Inputs))throw new Error(this.Log[Test]);
+	if(!this.Testers[Test].apply(this,Inputs))throw new Error(Test);
 }
 B.prototype.Testers={
 	CONSOLE:function(Value){
 		if(typeof Value!='object'||Value===null)return false;
 		let Required=Object.keys(this.Log);
-		for(let i=0,l=Required.length;i<l;i++)if(!(Required[i] in Value)||typeof Value[Required[i]]!='string')return false;
-		return true;
-	},
-	LANGUAGE:function(Value){
-		if(typeof Value!='object'||Value===null)return false;
-		let Required=Object.keys(this.Languages.Default);
 		for(let i=0,l=Required.length;i<l;i++)if(!(Required[i] in Value)||typeof Value[Required[i]]!='string')return false;
 		return true;
 	},
@@ -183,27 +206,16 @@ B.prototype.Testers={
 }
 B.prototype.Log={
 	CONSOLE:'The Console parameter did not contain the necessary messages',
-	LANGUAGE:'The Language parameter did not contain the necessary messages',
 	NAME:'The Name parameter was not a string',
 	API:'The API parameter was not valid',
 	FUNCTION:'The Function parameter was not a function',
 	OPTIONS:'Validation of the Options, Required, and Keys parameters failed',
 	STORE:'The Store parameter did not match a registered Store',
-}
-B.prototype.Error=function(Message,Lang){return typeof Lang=='string'&&Lang in this.Languages?this.Languages[Lang][Message]:this.Languages.Default[Message]}
-B.prototype.Languages={
-	Default:{
-		BADTYPE:'The input provided contained an invalid type',
-		BADDATA:'The Data provided was not an array',
-		BADKEYS:'The Keys provided were not valid',
-		BADENGINE:'The requested format was not valid',
-		MISSING:'The resource you requested was not found',
-		BADUPDATE:'The inputs provided were not sufficient to perform an update',
-		STOREFAILURE:'There was a data storage failure that interrupted the operation attempted',
-		NOTAUTHORIZED:'You are not authorized to perform the requested operation',
-		BADAUTH:'A server authorization error occurred',
-		BADSTORE:'The Store parameter did not match a registered Store',
-	}
+	AUTHORIZATION_FAILED:'The Auth parameter function returned false',
+	BAD_TYPE:'The input provided contained an invalid type',
+	BAD_OPTION:'The input provided contained an invalid type option',
+	BAD_STORE:'The Store parameter did not match a registered Store',
+	BAD_API_CALL:'The API was given a request that did not match a registered engine',
 }
 //B.Documentation=function(File){}
 module.exports=B
