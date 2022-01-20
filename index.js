@@ -48,33 +48,34 @@ B.prototype.Search=async function(Filters,Store){
 }
 B.prototype.Create=async function(Element,Auth){
 	let Type=this.Identify(Element);
-	let Meta=await Type==this.Meta?Element:this.Meta.Store.Read(this.Key(Element),this).then(M=>{if(!M){throw 'MISSING'}else return M});
+	let Meta=await Type==this.Meta?Element:this.Meta.Store.Read(this.Key(Element),this);
 	if(typeof Auth=='function')await Auth(Meta).then(A=>{if(!A){throw 'NOTAUTHORIZED'}});
-	this.Scrub(Type,Element,Meta);
+	await this.Scrub(Type,Element,Meta);
 	return await Type.Store.Create(Element,this);
 }
 B.prototype.Read=async function(Keys,Auth){
 	let Type=this.Identify(Keys);
-	let Meta=await this.Meta.Store.Read(this.Key(Keys),this).then(M=>{if(!M){throw 'MISSING'}else return M});
+	let Meta=await this.Meta.Store.Read(this.Key(Keys),this);
 	if(typeof Auth=='function')await Auth(Meta).then(A=>{if(!A){throw 'NOTAUTHORIZED'}});
 	return await Type==this.Meta?Meta:Type.Store.Read(Keys,this);
 }
 B.prototype.Update=async function(Keys,Updates,Auth){
 	let Type=this.Identify(Keys);
-	let Meta=await this.Meta.Store.Read(this.Key(Keys),this).then(M=>{if(!M){throw 'MISSING'}else return M});
+	let Meta=await this.Meta.Store.Read(this.Key(Keys),this);
 	if(typeof Auth=='function')await Auth(Meta).then(A=>{if(!A){throw 'NOTAUTHORIZED'}});
-	this.Scrub(Type,Updates,Meta,true);
+	await this.Scrub(Type,Updates,Meta,true);
 	return await Type.Store.Update(Keys,Updates,this);
 }
 B.prototype.Delete=async function(Keys,Auth){
 	let Type=this.Identify(Keys);
-	let Meta=await this.Meta.Store.Read(this.Key(Keys),this).then(M=>{if(!M){throw 'MISSING'}else return M});
+	let Meta=await this.Meta.Store.Read(this.Key(Keys),this);
 	if(typeof Auth=='function')await Auth(Meta).then(A=>{if(!A){throw 'NOTAUTHORIZED'}});
 	return await Type.Store.Delete(Keys,this);
 }
 B.prototype.Open=async function(Keys,Auth){
 	let Type=this.Identify(Keys);
-	let Meta=await this.Meta.Store.Read(this.Key(Keys),this).then(M=>{if(!M){throw 'MISSING'}else return M});
+	let Meta=await this.Meta.Store.Read(this.Key(Keys),this);
+	if(!Meta)throw 'MISSING';
 	if(typeof Auth=='function')await Auth(Meta).then(A=>{if(!A){throw 'NOTAUTHORIZED'}});
 	return new this.Resource(this,Meta);
 }
@@ -110,38 +111,37 @@ B.prototype.Resource.prototype.Delete=async function(Keys){
 	return await this.Parent.Delete(Keys);
 }
 B.prototype.Identify=function(Element){
-	if(typeof Element!='object'||Element===null)throw 'BADTYPE';
+	if(typeof Element!='object'||Element===null)throw 'BADTYPE1';
 	let Type;
 	if(!(this.Identifier in Element))Type=this.Meta;
 	else if(Element[this.Identifier] in this.Types)Type=this.Types[Element[this.Identifier]];
-	else throw 'BADTYPE';
-	for(let i=0,l=this.Meta.Keys.length;i<l;i++)if(!this.Meta.Keys[i] in Element)throw 'BADTYPE';
-	if(Type!=this.Meta)for(let i=0,l=Type.Keys.length;i<l;i++)if(!Type.Keys[i] in Element)throw 'BADTYPE';
+	else throw 'BADTYPE2';
+	for(let i=0,l=this.Meta.Keys.length;i<l;i++)if(!this.Meta.Keys[i] in Element)throw 'BADTYPE3';
+	if(Type!=this.Meta)for(let i=0,l=Type.Keys.length;i<l;i++)if(!Type.Keys[i] in Element)throw 'BADTYPE4';
 	return Type;
 }
 B.prototype.Scrub=async function(Type,Options,Meta,Partial){
 	let Shell={};
 	if(!Partial){
-		for(let i=0,l=this.Meta.Keys.length;i<l;i++)if(!this.Meta.Keys[i] in Element)throw 'BADTYPE';
-		if(Type!=this.Meta)for(let i=0,l=Type.Keys.length;i<l;i++)if(!Type.Keys[i] in Options)throw 'BADTYPE';
-		for(let i=0,l=Type.Required.length;i<l;i++)if(!Type.Required[i] in Options)throw 'BADTYPE';
+		for(let i=0,l=this.Meta.Keys.length;i<l;i++)if(!this.Meta.Keys[i] in Options)throw 'BADTYPE5';
+		if(Type!=this.Meta)for(let i=0,l=Type.Keys.length;i<l;i++)if(!Type.Keys[i] in Options)throw 'BADTYPE6';
+		for(let i=0,l=Type.Required.length;i<l;i++)if(!Type.Required[i] in Options)throw 'BADTYPE7';
 	}
 	for(let i=0,o=Object.keys(Options),l=o.length;i<l;i++){
 		if(o[i]==this.Identifier||this.Meta.Keys.includes(o[i]))continue;
 		Options[o[i]]=await Type.Options[o[i]](Options[o[i]],Shell,Meta,this);
-		if(!Options[o[i]])throw 'BADTYPE';
 		Shell[o[i]]=Options[o[i]];
-	}	
+	}
 }
 B.prototype.Key=function(Source,Target){
 	if(typeof Target=='object'&&Target!==null)for(let i=0,l=this.Meta.Keys.length;i<l;i++){
-		if(Source[this.Meta.Keys[i]]===undefined)throw 'BADTYPE';
+		if(Source[this.Meta.Keys[i]]===undefined)throw 'BADTYPE8';
 		Target[this.Meta.Keys[i]]=Source[this.Meta.Keys[i]];
 		return;
 	}
 	let Shell={};
 	for(let i=0,l=this.Meta.Keys.length;i<l;i++){
-		if(Source[this.Meta.Keys[i]]===undefined)throw 'BADTYPE';
+		if(Source[this.Meta.Keys[i]]===undefined)throw new Error('BADTYPE9');
 		Shell[this.Meta.Keys[i]]=Source[this.Meta.Keys[i]];
 	}
 	return Shell;
@@ -173,7 +173,7 @@ B.prototype.Testers={
 	OPTIONS:function(Options,Required,Keys,Meta){
 		if(!Meta&&typeof this.Identifier!='string')return false;
 		if(typeof Options!='object'||Options==null||!Array.isArray(Required)||!Array.isArray(Keys))return false;
-		if(!Meta)for(let i=0,o=Object.keys(Options),l=o.length;i<l;i++)if(this.Meta.Keys.includes(o[i]))return false;
+		if(!Meta)for(let i=0,o=Object.keys(Options),l=o.length;i<l;i++)if(this.Meta.Keys.includes(o[i])||o[i]==this.Identifier)return false;
 		for(let i=0,o=Object.keys(Options),l=o.length;i<l;i++)if(!(Options[o[i]] in this.Inputs))return false;
 		for(let i=0,l=Required.length;i<l;i++)if(!(Required[i] in Options))return false;
 		for(let i=0,l=Keys.length;i<l;i++)if(!(Keys[i] in Options))return false;
