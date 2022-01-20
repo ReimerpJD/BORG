@@ -1,0 +1,36 @@
+Framework API:
+	Search: Store, Filters, Auth
+	Create: Meta, Data, Auth
+	Read: Keys, Engine, Auth
+	Update: Element, Operation, Auth
+	Delete: Keys, Auth
+	# async functions
+
+Store API:
+	Search: Filters, Framework (Filters are custom)
+	Create: Data, Framework => Created Keys
+	Read: Keys, Framework
+	Update: Keys, Updates, Framework
+	Delete: Keys, Framework
+
+Input Functions:
+	Parameters: Value, Shell, Meta, Framework
+	Returns: Scrubbed value
+	Error: throw false if the Value is invalid
+	# async functions
+
+Engine Functions:
+	Parameters: Framework, ...Custom Parameters
+	Returns: Rendered Resource
+	# async functions
+
+Documentation Format: # {$}
+	Page Title: //#
+	Programming Documentation: //!
+	API Documentation: //?
+	Link to Document: //@
+	Description: //=
+	Input Parameter: //:
+	Returns: //$
+	Errors: //&
+	Comment: //-

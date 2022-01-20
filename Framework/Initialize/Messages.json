@@ -1,9 +1,0 @@
-{"Code":1,"en":"An Unexpected Error Prevented Rendering"}
-{"Code":2,"en":"The Resource You Requested Was Not Found"}
-{"Code":3,"en":"You Are Not Permitted to View This Document"}
-{"Code":4,"en":"The Resource You Requested Contains an Infinite Loop (meaning it is broken and cannot be servered until fixed)"}
-{"Code":5,"en":"A Failure to Connect to the Database Prevented Access to this Page"}
-{"Code":6,"en":"The Values You Provided are Invalid"}
-{"Code":7,"en":"The Requested Documentation is Not Available"}
-{"Code":8,"en":"The Requested Account is Locked"}
-{"Code":9,"en":"The Requested Resource is Locked"}
