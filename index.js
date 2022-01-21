@@ -1,6 +1,6 @@
 async function Search(Framework,Filters,Store,Auth){
 	let SelectedStore=!Store?Framework.Meta.Store:Store in Framework.Stores?Framework.Stores[Store]:false;
-	if(!Store)throw new Framework.OPERR('BAD_STORE');
+	if(!SelectedStore)throw new Framework.OPERR('BAD_STORE');
 	return await SelectedStore.Search(Filters).then(async A=>{
 		if(Array.isArray(A)&&typeof Auth=='function'){
 			let Results=[];
@@ -88,19 +88,20 @@ B.prototype.API=async function(Engine){
 	let Time=Date.now();
 	let Status='OK';
 	let Parameters=[];
+	let Trace;
 	for(let i=1,l=arguments.length;i<l;i++)Parameters.push(arguments[i]);
 	let Response=await this.Engines[Engine](this,...Parameters).catch(E=>{
 		Status=E instanceof this.OPERR&&E.message=='AUTHORIZATION_FAILED'?'AUTHORIZATION_FAILED':'ERROR';
 		return false;
 	});
-	return new this.Response(Engine,Date.now()-Time,Status,Response);
+	return new this.Response(Engine,Date.now()-Time,Status,Response,Trace);
 }
-B.prototype.Response=function(Query,Time,Status,Response){
+B.prototype.Response=function(Query,Time,Status,Response,Trace){
 	this.Query=Query;
 	this.Time=Time;
 	this.Status=Status;
 	this.Response=Response;
-	if(this.Status=='ERROR')this.Trace=new Error().stack;
+	if(Trace)this.Trace=Trace;
 }
 B.prototype.OPERR=function(Code){
 	let Shell={};
@@ -111,7 +112,7 @@ B.prototype.OPERR=function(Code){
 }
 B.prototype.Open=async function(Keys,Auth){
 	let Meta=await this.Meta.Store.Read(this.Key(Keys),this);
-	if(typeof Auth=='function')await Auth(Meta).then(A=>{if(!A){throw new this.OPERR('AUTHORIZATION_FAILED')}});
+	if(typeof Auth=='function')await Auth(Meta).then(A=>{if(!A){throw this.OPERR('AUTHORIZATION_FAILED')}});
 	return new this.Resource(this,Meta);
 }
 B.prototype.Resource=function(Parent,Meta){
@@ -140,37 +141,37 @@ B.prototype.Resource.prototype.Delete=async function(Keys){
 	return await this.Parent.API('Delete',Keys);
 }
 B.prototype.Identify=function(Element){
-	if(typeof Element!='object'||Element===null)throw new this.OPERR('BAD_TYPE');
+	if(typeof Element!='object'||Element===null)throw this.OPERR('BAD_TYPE');
 	let Type;
 	if(!(this.Identifier in Element))Type=this.Meta;
 	else if(Element[this.Identifier] in this.Types)Type=this.Types[Element[this.Identifier]];
-	else throw new this.OPERR('BAD_TYPE');
-	for(let i=0,l=this.Meta.Keys.length;i<l;i++)if(!this.Meta.Keys[i] in Element)throw new this.OPERR('BAD_TYPE');
-	if(Type!=this.Meta)for(let i=0,l=Type.Keys.length;i<l;i++)if(!Type.Keys[i] in Element)throw new this.OPERR('BAD_TYPE');
+	else throw this.OPERR('BAD_TYPE');
+	for(let i=0,l=this.Meta.Keys.length;i<l;i++)if(!this.Meta.Keys[i] in Element)throw this.OPERR('BAD_TYPE');
+	if(Type!=this.Meta)for(let i=0,l=Type.Keys.length;i<l;i++)if(!Type.Keys[i] in Element)throw this.OPERR('BAD_TYPE');
 	return Type;
 }
 B.prototype.Scrub=async function(Type,Options,Meta,Partial){
 	let Shell={};
 	if(!Partial){
-		for(let i=0,l=this.Meta.Keys.length;i<l;i++)if(!this.Meta.Keys[i] in Options)throw new this.OPERR('BAD_TYPE');
-		if(Type!=this.Meta)for(let i=0,l=Type.Keys.length;i<l;i++)if(!Type.Keys[i] in Options)throw new this.OPERR('BAD_TYPE');
-		for(let i=0,l=Type.Required.length;i<l;i++)if(!Type.Required[i] in Options)throw new this.OPERR('BAD_TYPE');
+		for(let i=0,l=this.Meta.Keys.length;i<l;i++)if(!this.Meta.Keys[i] in Options)throw this.OPERR('BAD_TYPE');
+		if(Type!=this.Meta)for(let i=0,l=Type.Keys.length;i<l;i++)if(!Type.Keys[i] in Options)throw this.OPERR('BAD_TYPE');
+		for(let i=0,l=Type.Required.length;i<l;i++)if(!Type.Required[i] in Options)throw this.OPERR('BAD_TYPE');
 	}
 	for(let i=0,o=Object.keys(Options),l=o.length;i<l;i++){
 		if(o[i]==this.Identifier||this.Meta.Keys.includes(o[i]))continue;
-		Options[o[i]]=await Type.Options[o[i]](Options[o[i]],Shell,Meta,this).catch(E=>{throw new this.OPERR('BAD_OPTION')});
+		Options[o[i]]=await Type.Options[o[i]](Options[o[i]],Shell,Meta,this).catch(E=>{throw this.OPERR('BAD_OPTION')});
 		Shell[o[i]]=Options[o[i]];
 	}
 }
 B.prototype.Key=function(Source,Target){
 	if(typeof Target=='object'&&Target!==null)for(let i=0,l=this.Meta.Keys.length;i<l;i++){
-		if(Source[this.Meta.Keys[i]]===undefined)throw new this.OPERR('BAD_TYPE');
+		if(Source[this.Meta.Keys[i]]===undefined)throw this.OPERR('BAD_TYPE');
 		Target[this.Meta.Keys[i]]=Source[this.Meta.Keys[i]];
 		return;
 	}
 	let Shell={};
 	for(let i=0,l=this.Meta.Keys.length;i<l;i++){
-		if(Source[this.Meta.Keys[i]]===undefined)throw new this.OPERR('BAD_TYPE');
+		if(Source[this.Meta.Keys[i]]===undefined)throw this.OPERR('BAD_TYPE');
 		Shell[this.Meta.Keys[i]]=Source[this.Meta.Keys[i]];
 	}
 	return Shell;
