@@ -84,7 +84,7 @@ B.prototype.Engine=function(Name,Function){
 	this.Engines[Name]=Function;
 }
 B.prototype.API=async function(Engine){
-	if(!(Engine in this.Engines))return new this.Response(typeof Engine=='string'?Engine:'‽',Time-Date.now(),'BAD_API_CALL',false);
+	if(!(Engine in this.Engines))return new this.Response(typeof Engine=='string'?Engine:'‽',Date.now()-Time,'BAD_API_CALL',false);
 	let Time=Date.now();
 	let Status='OK';
 	let Parameters=[];
@@ -93,14 +93,14 @@ B.prototype.API=async function(Engine){
 		Status=E instanceof this.OPERR&&E.message=='AUTHORIZATION_FAILED'?'AUTHORIZATION_FAILED':'ERROR';
 		return false;
 	});
-	return new this.Response(Engine,Time-Date.now(),Status,Response);
+	return new this.Response(Engine,Date.now()-Time,Status,Response);
 }
 B.prototype.Response=function(Query,Time,Status,Response){
 	this.Query=Query;
 	this.Time=Time;
 	this.Status=Status;
 	this.Response=Response;
-	if(this.Status=='ERROR')this.Trace=Error.captureStackTrace(this,Response);
+	if(this.Status=='ERROR')this.Trace=new Error().stack;
 }
 B.prototype.OPERR=function(Code){
 	let Shell={};
@@ -121,23 +121,23 @@ B.prototype.Resource=function(Parent,Meta){
 }
 B.prototype.Resource.prototype.Search=async function(Filters,Store){
 	this.Parent.Key(this.Keys,Filters);
-	return await this.Parent.Search(Filters,Store);
+	return await this.Parent.API('Search',Filters,Store);
 }
 B.prototype.Resource.prototype.Create=async function(Element){
 	this.Parent.Key(this.Keys,Element);
-	return await this.Parent.Create(Element);
+	return await this.Parent.API('Create',Element);
 }
 B.prototype.Resource.prototype.Read=async function(Keys){
 	this.Parent.Key(this.Keys,Keys);
-	return await this.Parent.Read(Keys);
+	return await this.Parent.API('Read',Keys);
 }
 B.prototype.Resource.prototype.Update=async function(Keys,Updates){
 	this.Parent.Key(this.Keys,Keys);
-	return await this.Parent.Update(Keys,Updates);
+	return await this.Parent.API('Update',Keys,Updates);
 }
 B.prototype.Resource.prototype.Delete=async function(Keys){
 	this.Parent.Key(this.Keys,Keys);
-	return await this.Parent.Delete(Keys);
+	return await this.Parent.API('Delete',Keys);
 }
 B.prototype.Identify=function(Element){
 	if(typeof Element!='object'||Element===null)throw new this.OPERR('BAD_TYPE');
@@ -158,7 +158,7 @@ B.prototype.Scrub=async function(Type,Options,Meta,Partial){
 	}
 	for(let i=0,o=Object.keys(Options),l=o.length;i<l;i++){
 		if(o[i]==this.Identifier||this.Meta.Keys.includes(o[i]))continue;
-		Options[o[i]]=await Type.Options[o[i]](Options[o[i]],Shell,Meta,this).catch(E=>throw new this.OPERR('BAD_OPTION'));
+		Options[o[i]]=await Type.Options[o[i]](Options[o[i]],Shell,Meta,this).catch(E=>{throw new this.OPERR('BAD_OPTION')});
 		Shell[o[i]]=Options[o[i]];
 	}
 }
